@@ -1,6 +1,7 @@
 import { authService } from '../services/auth.js';
 import { apiService } from '../services/api.js';
 import { websocketService } from '../services/websocket.js';
+import { commitQueue } from './queue.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
 
@@ -38,7 +39,9 @@ export async function startDaemon(): Promise<void> {
         // Register event handlers
         websocketService.onCommitApproved((commit, project) => {
             logger.info('daemon', `Commit approved: ${commit.id} for project ${project.name}`);
-            // Phase 5: Add to queue for processing
+
+            // Add to queue for processing
+            commitQueue.addToQueue(commit, project);
         });
 
         websocketService.onProjectUpdated((project) => {

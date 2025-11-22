@@ -10,6 +10,7 @@ import { registerUnlinkCommand } from './commands/unlink.js';
 import { registerStatusCommand } from './commands/status.js';
 import { registerSyncCommand } from './commands/sync.js';
 import { registerDaemonCommands } from './commands/daemon.js';
+import { registerCommitCommands } from './commands/commit.js';
 import { logger } from './utils/logger.js';
 
 const program = new Command();
@@ -33,21 +34,10 @@ registerSyncCommand(program);
 // Register Phase 3 commands
 registerDaemonCommands(program);
 
-program
-    .command('commits')
-    .description('List pending commits for this repository')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Commits command will be available in Phase 5'));
-        console.log(chalk.gray('Coming soon: stint commits\n'));
-    });
+// Register Phase 5 commands
+registerCommitCommands(program);
 
-program
-    .command('commit <id>')
-    .description('Execute a specific pending commit')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Commit execution will be available in Phase 5'));
-        console.log(chalk.gray('Coming soon: stint commit <id>\n'));
-    });
+
 
 // Error handling
 program.exitOverride();

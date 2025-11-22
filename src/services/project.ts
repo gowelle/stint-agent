@@ -60,6 +60,21 @@ class ProjectServiceImpl {
     getAllLinkedProjects(): Record<string, LinkedProject> {
         return config.getProjects();
     }
+
+    /**
+     * Get local path for a project ID
+     */
+    getProjectPath(projectId: string): string | null {
+        const allProjects = this.getAllLinkedProjects();
+
+        for (const [path, linkedProject] of Object.entries(allProjects)) {
+            if (linkedProject.projectId === projectId) {
+                return path;
+            }
+        }
+
+        return null;
+    }
 }
 
 export const projectService = new ProjectServiceImpl();

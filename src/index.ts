@@ -9,6 +9,7 @@ import { registerLinkCommand } from './commands/link.js';
 import { registerUnlinkCommand } from './commands/unlink.js';
 import { registerStatusCommand } from './commands/status.js';
 import { registerSyncCommand } from './commands/sync.js';
+import { registerDaemonCommands } from './commands/daemon.js';
 import { logger } from './utils/logger.js';
 
 const program = new Command();
@@ -29,14 +30,8 @@ registerUnlinkCommand(program);
 registerStatusCommand(program);
 registerSyncCommand(program);
 
-// Placeholder commands for future phases
-program
-    .command('daemon')
-    .description('Manage the Stint daemon (start/stop/status/logs)')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Daemon commands will be available in Phase 3'));
-        console.log(chalk.gray('Coming soon: stint daemon start|stop|status|logs\n'));
-    });
+// Register Phase 3 commands
+registerDaemonCommands(program);
 
 program
     .command('commits')

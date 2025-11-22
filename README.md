@@ -1,2 +1,187 @@
 # Stint Agent
-The Stint Agent is a lightweight Node.js CLI daemon that runs on the developer's machine. It bridges the gap between the Stint web app and local git repositories, enabling commit execution and repo status syncing.
+
+A lightweight Node.js CLI daemon that runs on the developer's machine. It bridges the gap between the Stint web app and local git repositories, enabling commit execution and repo status syncing.
+
+## Features
+
+- 🔐 Secure authentication with OAuth
+- 🔄 Real-time WebSocket connection to Stint
+- 📦 Automatic commit execution
+- 🔍 Repository status syncing
+- 🖥️ Background daemon process
+- 📝 Comprehensive logging
+
+## Installation
+
+```bash
+npm install -g @stint/agent
+# or
+pnpm add -g @stint/agent
+```
+
+## Quick Start
+
+```bash
+# Authenticate with Stint
+stint login
+
+# Check your authentication status
+stint whoami
+
+# Link a project (Phase 2)
+cd /path/to/your/project
+stint link
+
+# Start the daemon (Phase 3)
+stint daemon start
+
+# Check daemon status
+stint daemon status
+```
+
+## Commands
+
+### Authentication
+
+- `stint login` - Authenticate with Stint (opens browser for OAuth)
+- `stint logout` - Remove stored credentials
+- `stint whoami` - Show current user and machine information
+
+### Daemon (Phase 3 - Coming Soon)
+
+- `stint daemon start` - Start background daemon
+- `stint daemon stop` - Stop daemon
+- `stint daemon status` - Check if running
+- `stint daemon logs` - Tail daemon logs
+
+### Project Management (Phase 2 - Coming Soon)
+
+- `stint link` - Link current directory to a Stint project
+- `stint unlink` - Remove link
+- `stint status` - Show linked project and connection status
+
+### Manual Operations (Phase 2-5 - Coming Soon)
+
+- `stint sync` - Manually sync repo info to server
+- `stint commits` - List pending commits for this repo
+- `stint commit <id>` - Execute a specific pending commit
+
+## Development
+
+### Prerequisites
+
+- Node.js 20+
+- pnpm (recommended) or npm
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/stint/agent.git
+cd agent
+
+# Install dependencies
+pnpm install
+
+# Build the project
+pnpm build
+
+# Run in development mode
+pnpm dev
+```
+
+### Project Structure
+
+```
+stint-agent/
+├── src/
+│   ├── index.ts              # CLI entry point
+│   ├── commands/             # Command implementations
+│   │   ├── login.ts
+│   │   ├── logout.ts
+│   │   ├── whoami.ts
+│   │   └── ...
+│   ├── daemon/               # Daemon process
+│   ├── services/             # Core services
+│   │   ├── auth.ts
+│   │   ├── api.ts
+│   │   ├── git.ts
+│   │   └── websocket.ts
+│   ├── utils/                # Utilities
+│   │   ├── config.ts
+│   │   ├── logger.ts
+│   │   └── crypto.ts
+│   └── types/                # TypeScript types
+├── package.json
+├── tsconfig.json
+└── tsup.config.ts
+```
+
+### Building
+
+```bash
+# Build for production
+pnpm build
+
+# Watch mode for development
+pnpm dev
+
+# Lint code
+pnpm lint
+
+# Run tests
+pnpm test
+```
+
+## Configuration
+
+Configuration is stored in `~/.config/stint/config.json`:
+
+```json
+{
+  "apiUrl": "https://stint.app",
+  "wsUrl": "wss://stint.app/reverb",
+  "token": "encrypted_token_here",
+  "machineId": "uuid-generated-on-first-run",
+  "machineName": "Your-Machine-Name",
+  "projects": {
+    "/path/to/project": {
+      "projectId": "01HQ...",
+      "linkedAt": "2024-01-15T10:00:00Z"
+    }
+  }
+}
+```
+
+## Logging
+
+Logs are stored in `~/.config/stint/logs/`:
+
+- `agent.log` - General operations
+- `error.log` - Errors only
+
+Logs are rotated when they reach 10MB, keeping the last 7 files.
+
+## Implementation Phases
+
+- ✅ **Phase 1**: Core CLI (login, logout, whoami)
+- 🚧 **Phase 2**: Git Operations (link, status, sync)
+- 🚧 **Phase 3**: Daemon (start, stop, status, logs)
+- 🚧 **Phase 4**: WebSocket (real-time connection)
+- 🚧 **Phase 5**: Commit Execution
+- 🚧 **Phase 6**: Polish (retry logic, better UX)
+
+## Security
+
+- Tokens are encrypted at rest using machine-specific keys
+- All API communication uses HTTPS
+- WebSocket connections are authenticated
+- Git operations are restricted to linked directories
+
+## License
+
+MIT
+
+## Support
+
+For issues and questions, please visit [stint.app/support](https://stint.app/support)

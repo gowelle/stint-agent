@@ -4,8 +4,8 @@ import { randomUUID } from 'crypto';
 import os from 'os';
 
 const DEFAULT_CONFIG: Partial<Config> = {
-    apiUrl: 'https://stint.app',
-    wsUrl: 'wss://stint.app/reverb',
+    apiUrl: 'http://stint.codes',
+    wsUrl: 'ws://stint.codes/reverb',
     projects: {},
 };
 

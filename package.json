@@ -1,6 +1,6 @@
 {
   "name": "@stint/agent",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Local agent for Stint - Project Assistant",
   "type": "module",
   "bin": {

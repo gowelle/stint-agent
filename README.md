@@ -62,10 +62,77 @@ stint daemon status
 - `stint status` - Show project, git, auth, and daemon status
 - `stint sync` - Manually sync repository information to server
 
-### Commit Operations (Phase 5 - Coming Soon)
+### Commit Operations
 
 - `stint commits` - List pending commits for this repository
 - `stint commit <id>` - Execute a specific pending commit
+
+## Complete Workflow Example
+
+```bash
+# 1. Install and authenticate
+npm install -g @stint/agent
+stint login
+
+# 2. Link your project
+cd /path/to/your/project
+stint link
+
+# 3. Start the daemon
+stint daemon start
+
+# 4. Check status
+stint status
+
+# 5. View daemon logs (optional)
+stint daemon logs
+
+# Now commits approved in the web app will execute automatically!
+
+# Manual operations:
+stint commits              # List pending commits
+stint commit abc123        # Execute specific commit
+stint sync                 # Sync repo status
+stint daemon stop          # Stop daemon when done
+```
+
+## Troubleshooting
+
+### "Not authenticated" error
+
+Run `stint login` to authenticate with your Stint account.
+
+### "Repository has uncommitted changes"
+
+The agent requires a clean repository to execute commits. Run `git status` to see changes, then either commit or stash them:
+
+```bash
+git status                 # See what's changed
+git stash                  # Temporarily stash changes
+# or
+git add .
+git commit -m "message"    # Commit your changes
+```
+
+### Daemon won't start
+
+1. Check if already running: `stint daemon status`
+2. Check logs: `stint daemon logs`
+3. Try stopping first: `stint daemon stop`
+4. Then start again: `stint daemon start`
+
+### WebSocket connection issues
+
+Check your network connection and firewall settings. The agent needs to connect to `wss://stint.codes/reverb`.
+
+### "Project not linked" error
+
+Make sure you're in the correct directory and have linked it:
+
+```bash
+cd /path/to/your/project
+stint link
+```
 
 ## Development
 
@@ -78,7 +145,7 @@ stint daemon status
 
 ```bash
 # Clone the repository
-git clone https://github.com/stint/agent.git
+git clone https://github.com/gowelle/stint-agent.git
 cd agent
 
 # Install dependencies
@@ -140,8 +207,8 @@ Configuration is stored in `~/.config/stint/config.json`:
 
 ```json
 {
-  "apiUrl": "https://stint.app",
-  "wsUrl": "wss://stint.app/reverb",
+  "apiUrl": "https://stint.codes",
+  "wsUrl": "wss://stint.codes/reverb",
   "token": "encrypted_token_here",
   "machineId": "uuid-generated-on-first-run",
   "machineName": "Your-Machine-Name",
@@ -216,4 +283,4 @@ MIT
 
 ## Support
 
-For issues and questions, please visit [stint.app/support](https://stint.app/support)
+For issues and questions, please visit [stint.codes/support](https://stint.codes/support)

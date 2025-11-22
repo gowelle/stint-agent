@@ -47,7 +47,7 @@ export function registerLinkCommand(program: Command): void {
                 if (projects.length === 0) {
                     spinner.info('No projects available');
                     console.log(chalk.yellow('\n⚠ No projects found in your Stint account.'));
-                    console.log(chalk.gray('Create a project at https://stint.app first.\n'));
+                    console.log(chalk.gray('Create a project at https://stint.codes first.\n'));
                     return;
                 }
 

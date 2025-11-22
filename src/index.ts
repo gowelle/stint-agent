@@ -18,7 +18,18 @@ const program = new Command();
 program
     .name('stint')
     .description('Stint Agent - Local daemon for Stint Project Assistant')
-    .version('0.1.0');
+    .version('1.0.0')
+    .addHelpText('after', `
+${chalk.bold('Examples:')}
+  ${chalk.cyan('$')} stint login                 ${chalk.gray('# Authenticate with Stint')}
+  ${chalk.cyan('$')} stint link                  ${chalk.gray('# Link current directory to a project')}
+  ${chalk.cyan('$')} stint daemon start          ${chalk.gray('# Start background daemon')}
+  ${chalk.cyan('$')} stint status                ${chalk.gray('# Check status')}
+  ${chalk.cyan('$')} stint commits               ${chalk.gray('# List pending commits')}
+
+${chalk.bold('Documentation:')}
+  For more information, visit: ${chalk.blue('https://stint.codes/docs')}
+    `);
 
 // Register Phase 1 commands
 registerLoginCommand(program);

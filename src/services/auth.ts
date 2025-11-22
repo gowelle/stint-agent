@@ -40,25 +40,13 @@ class AuthServiceImpl {
         }
 
         try {
-            // This will be implemented when we have the API service
-            // For now, we'll import it dynamically to avoid circular dependencies
+            // Import dynamically to avoid circular dependencies
             const { apiService } = await import('./api.js');
-            const response = await fetch(`${config.getApiUrl()}/api/user`, {
-                headers: {
-                    Authorization: `Bearer ${token}`,
-                    'Content-Type': 'application/json',
-                },
-            });
-
-            if (!response.ok) {
-                logger.warn('auth', 'Token validation failed');
-                return null;
-            }
-
-            const user = await response.json() as User;
+            const user = await apiService.getCurrentUser();
             logger.info('auth', `Token validated for user: ${user.email}`);
             return user;
         } catch (error) {
+            logger.warn('auth', 'Token validation failed');
             logger.error('auth', 'Failed to validate token', error as Error);
             return null;
         }

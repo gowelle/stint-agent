@@ -4,6 +4,7 @@ import {
     Commit,
     RepoInfo,
     Project,
+    User,
 } from '../types/index.js';
 import { config } from '../utils/config.js';
 import { authService } from './auth.js';
@@ -191,6 +192,15 @@ class ApiServiceImpl {
 
         logger.info('api', `Found ${projects.length} linked projects`);
         return projects;
+    }
+
+    async getCurrentUser(): Promise<User> {
+        logger.info('api', 'Fetching current user');
+
+        const user = await this.request<User>('/api/user');
+
+        logger.info('api', `Fetched user: ${user.email}`);
+        return user;
     }
 }
 

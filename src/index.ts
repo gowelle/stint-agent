@@ -5,6 +5,10 @@ import chalk from 'chalk';
 import { registerLoginCommand } from './commands/login.js';
 import { registerLogoutCommand } from './commands/logout.js';
 import { registerWhoamiCommand } from './commands/whoami.js';
+import { registerLinkCommand } from './commands/link.js';
+import { registerUnlinkCommand } from './commands/unlink.js';
+import { registerStatusCommand } from './commands/status.js';
+import { registerSyncCommand } from './commands/sync.js';
 import { logger } from './utils/logger.js';
 
 const program = new Command();
@@ -19,6 +23,12 @@ registerLoginCommand(program);
 registerLogoutCommand(program);
 registerWhoamiCommand(program);
 
+// Register Phase 2 commands
+registerLinkCommand(program);
+registerUnlinkCommand(program);
+registerStatusCommand(program);
+registerSyncCommand(program);
+
 // Placeholder commands for future phases
 program
     .command('daemon')
@@ -26,38 +36,6 @@ program
     .action(() => {
         console.log(chalk.yellow('⚠ Daemon commands will be available in Phase 3'));
         console.log(chalk.gray('Coming soon: stint daemon start|stop|status|logs\n'));
-    });
-
-program
-    .command('link')
-    .description('Link current directory to a Stint project')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Link command will be available in Phase 2'));
-        console.log(chalk.gray('Coming soon: stint link\n'));
-    });
-
-program
-    .command('unlink')
-    .description('Remove link from current directory')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Unlink command will be available in Phase 2'));
-        console.log(chalk.gray('Coming soon: stint unlink\n'));
-    });
-
-program
-    .command('status')
-    .description('Show linked project and connection status')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Status command will be available in Phase 2'));
-        console.log(chalk.gray('Coming soon: stint status\n'));
-    });
-
-program
-    .command('sync')
-    .description('Manually sync repository information to server')
-    .action(() => {
-        console.log(chalk.yellow('⚠ Sync command will be available in Phase 2'));
-        console.log(chalk.gray('Coming soon: stint sync\n'));
     });
 
 program

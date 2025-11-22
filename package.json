@@ -13,6 +13,7 @@
     "test": "vitest"
   },
   "dependencies": {
+    "@inquirer/prompts": "^5.0.0",
     "commander": "^12.0.0",
     "conf": "^12.0.0",
     "simple-git": "^3.22.0",

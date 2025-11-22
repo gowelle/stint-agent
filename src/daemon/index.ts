@@ -1,5 +1,6 @@
 import { authService } from '../services/auth.js';
 import { apiService } from '../services/api.js';
+import { websocketService } from '../services/websocket.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
 
@@ -25,6 +26,28 @@ export async function startDaemon(): Promise<void> {
         logger.info('daemon', 'Connecting to API...');
         const session = await apiService.connect();
         logger.success('daemon', `Agent session connected: ${session.id}`);
+
+        // Connect to WebSocket
+        logger.info('daemon', 'Connecting to WebSocket...');
+        await websocketService.connect();
+        logger.success('daemon', 'WebSocket connected');
+
+        // Subscribe to user channel
+        websocketService.subscribeToUserChannel(user.id);
+
+        // Register event handlers
+        websocketService.onCommitApproved((commit, project) => {
+            logger.info('daemon', `Commit approved: ${commit.id} for project ${project.name}`);
+            // Phase 5: Add to queue for processing
+        });
+
+        websocketService.onProjectUpdated((project) => {
+            logger.info('daemon', `Project updated: ${project.id} - ${project.name}`);
+        });
+
+        websocketService.onDisconnect(() => {
+            logger.warn('daemon', 'WebSocket disconnected, will attempt to reconnect');
+        });
 
         // Set up signal handlers for graceful shutdown
         setupSignalHandlers();
@@ -121,6 +144,14 @@ async function shutdown(): Promise<void> {
 
     // Stop heartbeat
     stopHeartbeat();
+
+    // Disconnect WebSocket
+    try {
+        websocketService.disconnect();
+        logger.info('daemon', 'Disconnected from WebSocket');
+    } catch (error) {
+        logger.error('daemon', 'Failed to disconnect from WebSocket', error as Error);
+    }
 
     // Disconnect from API
     try {

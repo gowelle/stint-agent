@@ -47,23 +47,24 @@ stint daemon status
 - `stint logout` - Remove stored credentials
 - `stint whoami` - Show current user and machine information
 
-### Daemon (Phase 3 - Coming Soon)
+### Daemon
 
 - `stint daemon start` - Start background daemon
-- `stint daemon stop` - Stop daemon
-- `stint daemon status` - Check if running
-- `stint daemon logs` - Tail daemon logs
+- `stint daemon stop` - Stop daemon gracefully
+- `stint daemon status` - Check if daemon is running
+- `stint daemon logs [--lines N]` - View daemon logs (default: 50 lines)
+- `stint daemon restart` - Restart the daemon
 
-### Project Management (Phase 2 - Coming Soon)
+### Project Management
 
-- `stint link` - Link current directory to a Stint project
-- `stint unlink` - Remove link
-- `stint status` - Show linked project and connection status
+- `stint link` - Link current directory to a Stint project (interactive)
+- `stint unlink [--force]` - Remove project link (with confirmation)
+- `stint status` - Show project, git, auth, and daemon status
+- `stint sync` - Manually sync repository information to server
 
-### Manual Operations (Phase 2-5 - Coming Soon)
+### Commit Operations (Phase 5 - Coming Soon)
 
-- `stint sync` - Manually sync repo info to server
-- `stint commits` - List pending commits for this repo
+- `stint commits` - List pending commits for this repository
 - `stint commit <id>` - Execute a specific pending commit
 
 ## Development
@@ -157,19 +158,50 @@ Configuration is stored in `~/.config/stint/config.json`:
 
 Logs are stored in `~/.config/stint/logs/`:
 
-- `agent.log` - General operations
-- `error.log` - Errors only
+- `agent.log` - General CLI operations
+- `daemon.log` - Daemon process logs
+- `daemon-error.log` - Daemon errors
 
 Logs are rotated when they reach 10MB, keeping the last 7 files.
 
 ## Implementation Phases
 
-- ✅ **Phase 1**: Core CLI (login, logout, whoami)
-- 🚧 **Phase 2**: Git Operations (link, status, sync)
-- 🚧 **Phase 3**: Daemon (start, stop, status, logs)
-- 🚧 **Phase 4**: WebSocket (real-time connection)
+- ✅ **Phase 1**: Core CLI & Authentication
+  - OAuth login flow
+  - Token encryption and storage
+  - User and machine identification
+  - API service integration
+
+- ✅ **Phase 2**: Git Operations
+  - Git repository integration (simple-git)
+  - Project linking and management
+  - Repository status tracking
+  - Manual sync to server
+
+- ✅ **Phase 3**: Daemon Process
+  - Background process management
+  - PID file handling
+  - Heartbeat loop (30s interval)
+  - Process lifecycle (start, stop, restart)
+  - Log tailing
+
+- ✅ **Phase 4**: WebSocket Integration
+  - Real-time connection to Reverb
+  - Pusher protocol support
+  - User channel subscription
+  - Event handlers (commit approval, project updates)
+  - Automatic reconnection with exponential backoff
+
 - 🚧 **Phase 5**: Commit Execution
-- 🚧 **Phase 6**: Polish (retry logic, better UX)
+  - Commit queue processing
+  - Automatic git staging and commits
+  - Execution status reporting
+  - Error handling and retry logic
+
+- 🚧 **Phase 6**: Polish & Optimization
+  - Enhanced error messages
+  - Performance optimizations
+  - Additional UX improvements
 
 ## Security
 

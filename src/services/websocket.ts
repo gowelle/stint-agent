@@ -124,7 +124,7 @@ class WebSocketServiceImpl {
         this.disconnectHandlers.push(handler);
     }
 
-    private sendMessage(message: Record<string, any>): void {
+    private sendMessage(message: Record<string, unknown>): void {
         if (!this.isConnected()) {
             logger.warn('websocket', 'Cannot send message: not connected');
             return;

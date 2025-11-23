@@ -56,7 +56,8 @@ program.exitOverride();
 try {
     await program.parseAsync(process.argv);
 } catch (error) {
-    if ((error as any).code !== 'commander.help' && (error as any).code !== 'commander.version') {
+    const commanderError = error as Error & { code?: string };
+    if (commanderError.code !== 'commander.help' && commanderError.code !== 'commander.version') {
         logger.error('cli', 'Command execution failed', error as Error);
         console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
         process.exit(1);

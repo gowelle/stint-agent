@@ -4,9 +4,11 @@ import { websocketService } from '../services/websocket.js';
 import { commitQueue } from './queue.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
+import { FileWatcher } from './watcher.js';
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
+const fileWatcher = new FileWatcher();
 
 /**
  * Start the daemon process
@@ -57,6 +59,9 @@ export async function startDaemon(): Promise<void> {
 
         // Start heartbeat loop
         startHeartbeat();
+
+        // Start file watcher for auto-sync
+        fileWatcher.start();
 
         logger.success('daemon', 'Daemon started successfully');
 
@@ -147,6 +152,14 @@ async function shutdown(): Promise<void> {
 
     // Stop heartbeat
     stopHeartbeat();
+
+    // Stop file watcher
+    try {
+        fileWatcher.stop();
+        logger.info('daemon', 'File watcher stopped');
+    } catch (error) {
+        logger.error('daemon', 'Failed to stop file watcher', error as Error);
+    }
 
     // Disconnect WebSocket
     try {

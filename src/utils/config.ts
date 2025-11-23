@@ -6,6 +6,7 @@ import os from 'os';
 const DEFAULT_CONFIG: Partial<Config> = {
     apiUrl: 'https://stint.codes',
     wsUrl: 'wss://stint.codes/reverb',
+    reverbAppKey: '',
     projects: {},
 };
 
@@ -89,7 +90,64 @@ class ConfigManager {
     }
 
     getWsUrl(): string {
-        return this.conf.get('wsUrl');
+        const environment = this.getEnvironment();
+        const reverbAppKey = this.conf.get('reverbAppKey');
+
+        // Build URL based on environment
+        let baseUrl: string;
+        if (environment === 'development') {
+            baseUrl = 'ws://localhost:8080';
+        } else {
+            // Production: use configured wsUrl or default
+            baseUrl = this.conf.get('wsUrl') || 'wss://stint.codes/reverb';
+        }
+
+        // If reverbAppKey is provided, construct Laravel Reverb URL pattern
+        if (reverbAppKey && reverbAppKey.trim() !== '') {
+            // Remove trailing slash from baseUrl if present
+            const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+            // Remove /reverb path if present (since we're using /app/{key} format)
+            const baseWithoutReverb = cleanBaseUrl.replace(/\/reverb$/, '');
+            return `${baseWithoutReverb}/app/${reverbAppKey}`;
+        }
+
+        // Backward compatibility: ensure /reverb path exists if not already present
+        const cleanBaseUrl = baseUrl.replace(/\/$/, '');
+        if (!cleanBaseUrl.includes('/reverb')) {
+            return `${cleanBaseUrl}/reverb`;
+        }
+        return cleanBaseUrl;
+    }
+
+    // Environment management
+    getEnvironment(): 'development' | 'production' {
+        // Check config first (allows manual override)
+        const configEnv = this.conf.get('environment');
+        if (configEnv === 'development' || configEnv === 'production') {
+            return configEnv;
+        }
+
+        // Fall back to NODE_ENV
+        const nodeEnv = process.env.NODE_ENV;
+        if (nodeEnv === 'development' || nodeEnv === 'dev') {
+            return 'development';
+        }
+
+        // Default to production
+        return 'production';
+    }
+
+    setEnvironment(environment: 'development' | 'production'): void {
+        this.conf.set('environment', environment);
+    }
+
+    // Reverb App Key management
+    getReverbAppKey(): string | undefined {
+        return this.conf.get('reverbAppKey');
+    }
+
+    setReverbAppKey(reverbAppKey: string): void {
+        this.conf.set('reverbAppKey', reverbAppKey);
     }
 }
 

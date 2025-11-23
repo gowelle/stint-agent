@@ -76,6 +76,8 @@ export interface Branch {
 export interface Config {
     apiUrl: string;
     wsUrl: string;
+    reverbAppKey?: string;
+    environment?: 'development' | 'production';
     token?: string;
     machineId: string;
     machineName: string;

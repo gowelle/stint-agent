@@ -91,7 +91,8 @@ class ConfigManager {
 
     getWsUrl(): string {
         const environment = this.getEnvironment();
-        const reverbAppKey = this.conf.get('reverbAppKey');
+        // Use the centralized getter to ensure env vars are checked
+        const reverbAppKey = this.getReverbAppKey();
 
         // Build URL based on environment
         let baseUrl: string;
@@ -143,7 +144,10 @@ class ConfigManager {
 
     // Reverb App Key management
     getReverbAppKey(): string | undefined {
-        return this.conf.get('reverbAppKey');
+        // Prioritize environment variables for security
+        return process.env.REVERB_APP_KEY ||
+            process.env.STINT_REVERB_APP_KEY ||
+            this.conf.get('reverbAppKey');
     }
 
     setReverbAppKey(reverbAppKey: string): void {

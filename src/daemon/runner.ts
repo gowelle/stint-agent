@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import 'dotenv/config';
 
 /**
  * Daemon Runner - Entry point for the background daemon process

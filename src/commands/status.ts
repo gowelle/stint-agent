@@ -65,7 +65,7 @@ export function registerStatusCommand(program: Command): void {
                         if (ahead > 0 || behind > 0) {
                             console.log(`${chalk.bold('Sync Status:')}  ${ahead > 0 ? chalk.yellow(`↑${ahead}`) : ''} ${behind > 0 ? chalk.yellow(`↓${behind}`) : ''}`);
                         }
-                    } catch (error) {
+                    } catch {
                         console.log(chalk.red('Error reading repository information'));
                     }
                 } else {

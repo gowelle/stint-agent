@@ -15,7 +15,7 @@ export function isProcessRunning(pid: number): boolean {
         // It just checks if the process exists
         process.kill(pid, 0);
         return true;
-    } catch (error) {
+    } catch {
         return false;
     }
 }

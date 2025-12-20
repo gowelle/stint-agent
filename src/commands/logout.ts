@@ -23,7 +23,7 @@ export function registerLogoutCommand(program: Command): void {
                 // Try to disconnect the session
                 try {
                     await apiService.disconnect();
-                } catch (error) {
+                } catch {
                     // Ignore errors during disconnect, we'll clear the token anyway
                     logger.warn('logout', 'Failed to disconnect session, continuing with logout');
                 }

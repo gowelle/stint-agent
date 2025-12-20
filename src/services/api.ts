@@ -1,4 +1,3 @@
-import { createRequire } from 'node:module';
 import {
     AgentSession,
     PendingCommit,
@@ -11,10 +10,8 @@ import { config } from '../utils/config.js';
 import { authService } from './auth.js';
 import { logger } from '../utils/logger.js';
 
-// Read version from package.json dynamically
-const require = createRequire(import.meta.url);
-const packageJson = require('../../package.json') as { version: string };
-const AGENT_VERSION = packageJson.version;
+// Version is injected at build time via tsup define
+const AGENT_VERSION = process.env.AGENT_VERSION || '0.0.0';
 
 class ApiServiceImpl {
     private sessionId: string | null = null;

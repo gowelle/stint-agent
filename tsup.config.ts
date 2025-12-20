@@ -1,4 +1,9 @@
 import { defineConfig } from 'tsup';
+import { readFileSync } from 'fs';
+
+// Read version from package.json at build time
+const packageJson = JSON.parse(readFileSync('./package.json', 'utf-8'));
+const version = packageJson.version;
 
 export default defineConfig({
     entry: {
@@ -9,4 +14,7 @@ export default defineConfig({
     target: 'node20',
     clean: true,
     minify: false,
+    define: {
+        'process.env.AGENT_VERSION': JSON.stringify(version),
+    },
 });

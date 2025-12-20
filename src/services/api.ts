@@ -150,9 +150,17 @@ class ApiServiceImpl {
     async getPendingCommits(projectId: string): Promise<PendingCommit[]> {
         logger.info('api', `Fetching pending commits for project ${projectId}`);
 
-        const commits = await this.request<PendingCommit[]>(
-            `/api/agent/projects/${projectId}/pending-commits`
+        const response = await this.request<{ data: any[] }>(
+            `/api/agent/pending-commits?project_id=${projectId}`
         );
+
+        const commits: PendingCommit[] = response.data.map((item) => ({
+            id: item.id,
+            projectId: item.project_id || item.projectId,
+            message: item.message,
+            files: item.files,
+            createdAt: item.created_at || item.createdAt,
+        }));
 
         logger.info('api', `Found ${commits.length} pending commits`);
         return commits;
@@ -162,13 +170,25 @@ class ApiServiceImpl {
         logger.info('api', `Marking commit ${commitId} as executed (SHA: ${sha})`);
 
         return this.withRetry(async () => {
-            const commit = await this.request<Commit>(
+            const response = await this.request<{ data: any }>(
                 `/api/agent/commits/${commitId}/executed`,
                 {
                     method: 'POST',
                     body: JSON.stringify({ sha }),
                 }
             );
+            const data = response.data;
+
+            const commit: Commit = {
+                id: data.id,
+                projectId: data.project_id || data.projectId,
+                message: data.message,
+                sha: data.sha,
+                status: data.status,
+                createdAt: data.created_at || data.createdAt,
+                executedAt: data.executed_at || data.executedAt,
+                error: data.error,
+            };
 
             logger.success('api', `Commit ${commitId} marked as executed`);
             return commit;
@@ -202,7 +222,8 @@ class ApiServiceImpl {
     async getLinkedProjects(): Promise<Project[]> {
         logger.info('api', 'Fetching linked projects');
 
-        const projects = await this.request<Project[]>('/api/agent/projects');
+        const response = await this.request<{ data: Project[] }>('/api/agent/projects');
+        const projects = response.data;
 
         logger.info('api', `Found ${projects.length} linked projects`);
         return projects;

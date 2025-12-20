@@ -14,12 +14,15 @@ import { registerDaemonCommands } from './commands/daemon.js';
 import { registerCommitCommands } from './commands/commit.js';
 import { logger } from './utils/logger.js';
 
+// Version is injected at build time via tsup define
+const AGENT_VERSION = process.env.AGENT_VERSION || '0.0.0';
+
 const program = new Command();
 
 program
     .name('stint')
     .description('Stint Agent - Local daemon for Stint Project Assistant')
-    .version('1.0.0')
+    .version(AGENT_VERSION, '-V, --version', 'output the current version')
     .addHelpText('after', `
 ${chalk.bold('Examples:')}
   ${chalk.cyan('$')} stint login                 ${chalk.gray('# Authenticate with Stint')}

@@ -6,7 +6,7 @@ import os from 'os';
 const DEFAULT_CONFIG: Partial<Config> = {
     apiUrl: 'https://stint.codes',
     wsUrl: 'wss://stint.codes/reverb',
-    reverbAppKey: '',
+    reverbAppKey: 'wtn6tu6lirfv6yflujk7',
     projects: {},
 };
 

@@ -1,16 +1,39 @@
 {
-  "name": "@stint/agent",
+  "name": "@gowelle/stint-agent",
   "version": "1.0.0",
   "description": "Local agent for Stint - Project Assistant",
+  "author": "Gowelle John <gowelle.john@icloud.com>",
+  "license": "MIT",
   "type": "module",
   "bin": {
     "stint": "./dist/index.js"
   },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gowelle/stint-agent.git"
+  },
+  "homepage": "https://github.com/gowelle/stint-agent#readme",
+  "bugs": {
+    "url": "https://github.com/gowelle/stint-agent/issues"
+  },
+  "keywords": [
+    "stint",
+    "agent",
+    "project-assistant",
+    "cli",
+    "git"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
     "lint": "eslint src",
-    "test": "vitest"
+    "test": "vitest",
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@inquirer/prompts": "^5.0.0",

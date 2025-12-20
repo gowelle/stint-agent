@@ -1,0 +1,19 @@
+# Source files
+src/
+
+# Config files
+tsconfig.json
+tsup.config.ts
+.eslintrc.json
+.env*
+
+# Development
+node_modules/
+*.log
+
+# Git
+.git/
+.gitignore
+
+# Specs/docs not needed in package
+SPECS.md

@@ -49,8 +49,8 @@ export function registerDaemonCommands(program: Command): void {
                 }
 
                 // Find the daemon runner script
-                // In production, this will be in dist/daemon/runner.js
-                const runnerPath = path.join(__dirname, '..', '..', 'dist', 'daemon', 'runner.js');
+                // After tsup bundling, __dirname is dist/, runner is at dist/daemon/runner.js
+                const runnerPath = path.join(__dirname, 'daemon', 'runner.js');
 
                 if (!fs.existsSync(runnerPath)) {
                     throw new Error(`Daemon runner not found at ${runnerPath}`);
@@ -246,7 +246,7 @@ export function registerDaemonCommands(program: Command): void {
                     throw new Error('Not authenticated');
                 }
 
-                const runnerPath = path.join(__dirname, '..', '..', 'dist', 'daemon', 'runner.js');
+                const runnerPath = path.join(__dirname, 'daemon', 'runner.js');
                 const daemonPid = spawnDetached('node', [runnerPath]);
 
                 await new Promise((resolve) => setTimeout(resolve, 1000));

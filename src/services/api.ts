@@ -90,15 +90,22 @@ class ApiServiceImpl {
     async connect(): Promise<AgentSession> {
         logger.info('api', 'Connecting agent session...');
 
+        // Get package version for agent_version
+        const agentVersion = '1.0.0'; // TODO: Read from package.json dynamically
+        const os = `${process.platform}-${process.arch}`;
+
         return this.withRetry(async () => {
-            const session = await this.request<AgentSession>('/api/agent/connect', {
+            const response = await this.request<{ message: string; data: AgentSession }>('/api/agent/connect', {
                 method: 'POST',
                 body: JSON.stringify({
-                    machineId: authService.getMachineId(),
-                    machineName: authService.getMachineName(),
+                    machine_id: authService.getMachineId(),
+                    machine_name: authService.getMachineName(),
+                    os: os,
+                    agent_version: agentVersion,
                 }),
             });
 
+            const session = response.data;
             this.sessionId = session.id;
             logger.success('api', `Agent session connected: ${session.id}`);
             return session;
@@ -114,6 +121,9 @@ class ApiServiceImpl {
 
         await this.request('/api/agent/disconnect', {
             method: 'POST',
+            body: JSON.stringify({
+                session_id: this.sessionId,
+            }),
         });
 
         this.sessionId = null;
@@ -128,6 +138,9 @@ class ApiServiceImpl {
         await this.withRetry(async () => {
             await this.request('/api/agent/heartbeat', {
                 method: 'POST',
+                body: JSON.stringify({
+                    session_id: this.sessionId,
+                }),
             });
             logger.debug('api', 'Heartbeat sent');
         }, 'Heartbeat');

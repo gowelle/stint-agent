@@ -1,3 +1,4 @@
+import { createRequire } from 'node:module';
 import {
     AgentSession,
     PendingCommit,
@@ -9,6 +10,11 @@ import {
 import { config } from '../utils/config.js';
 import { authService } from './auth.js';
 import { logger } from '../utils/logger.js';
+
+// Read version from package.json dynamically
+const require = createRequire(import.meta.url);
+const packageJson = require('../../package.json') as { version: string };
+const AGENT_VERSION = packageJson.version;
 
 class ApiServiceImpl {
     private sessionId: string | null = null;
@@ -90,8 +96,6 @@ class ApiServiceImpl {
     async connect(): Promise<AgentSession> {
         logger.info('api', 'Connecting agent session...');
 
-        // Get package version for agent_version
-        const agentVersion = '1.0.0'; // TODO: Read from package.json dynamically
         const os = `${process.platform}-${process.arch}`;
 
         return this.withRetry(async () => {
@@ -101,7 +105,7 @@ class ApiServiceImpl {
                     machine_id: authService.getMachineId(),
                     machine_name: authService.getMachineName(),
                     os: os,
-                    agent_version: agentVersion,
+                    agent_version: AGENT_VERSION,
                 }),
             });
 

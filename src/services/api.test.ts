@@ -222,13 +222,13 @@ describe('ApiService', () => {
 
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve(mockCommits),
+                json: () => Promise.resolve({ data: mockCommits }),
             });
 
             const commits = await apiService.getPendingCommits('proj-1');
 
             expect(mockFetch).toHaveBeenCalledWith(
-                'https://api.stint.test/api/agent/projects/proj-1/pending-commits',
+                'https://api.stint.test/api/agent/pending-commits?project_id=proj-1',
                 expect.any(Object)
             );
             expect(commits).toEqual(mockCommits);
@@ -241,7 +241,7 @@ describe('ApiService', () => {
 
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve(mockCommit),
+                json: () => Promise.resolve({ data: mockCommit }),
             });
 
             const commit = await apiService.markCommitExecuted('commit-1', 'abc123');
@@ -319,7 +319,7 @@ describe('ApiService', () => {
 
             mockFetch.mockResolvedValue({
                 ok: true,
-                json: () => Promise.resolve(mockProjects),
+                json: () => Promise.resolve({ data: mockProjects }),
             });
 
             const projects = await apiService.getLinkedProjects();

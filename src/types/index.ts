@@ -138,6 +138,13 @@ export interface ApiService {
     markCommitFailed(commitId: string, error: string): Promise<void>;
     syncProject(projectId: string, data: RepoInfo): Promise<void>;
     getLinkedProjects(): Promise<Project[]>;
+    createProject(data: {
+        name: string;
+        description?: string;
+        repo_path?: string;
+        remote_url?: string;
+        default_branch?: string;
+    }): Promise<Project>;
 }
 
 export interface GitService {

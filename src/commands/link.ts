@@ -2,9 +2,10 @@
 // Command: stint link
 
 import { Command } from 'commander';
-import { select } from '@inquirer/prompts';
+import { select, input } from '@inquirer/prompts';
 import ora from 'ora';
 import chalk from 'chalk';
+import path from 'path';
 import { gitService } from '../services/git.js';
 import { projectService } from '../services/project.js';
 import { apiService } from '../services/api.js';
@@ -54,20 +55,71 @@ export function registerLinkCommand(program: Command): void {
                 spinner.succeed('Ready to link');
 
                 // Interactive project selection
-                const selectedProjectId = await select({
-                    message: 'Select a project to link:',
-                    choices: projects.map((project) => ({
-                        name: `${project.name}${project.description ? ` - ${project.description}` : ''}`,
-                        value: project.id,
-                        description: `ID: ${project.id}`,
-                    })),
+                const choices = projects.map((project) => ({
+                    name: project.name,
+                    value: project.id,
+                    description: `ID: ${project.id}`,
+                }));
+
+                const CREATE_NEW_PROJECT = 'create-new-project';
+                choices.push({
+                    name: '➕ Create new project',
+                    value: CREATE_NEW_PROJECT,
+                    description: 'Create a new project on Stint',
                 });
+
+                const selectedAction = await select({
+                    message: 'Select a project to link:',
+                    choices: choices,
+                });
+
+                let selectedProjectId = selectedAction;
+                let selectedProject = projects.find((p) => p.id === selectedProjectId);
+
+                if (selectedAction === CREATE_NEW_PROJECT) {
+                    const name = await input({
+                        message: 'Project name:',
+                        default: path.basename(cwd),
+                        validate: (input) => input.trim().length > 0 || 'Project name is required',
+                    });
+
+                    const description = await input({
+                        message: 'Description (optional):',
+                    });
+
+                    const createSpinner = ora('Creating project...').start();
+
+                    try {
+                        // Gather git info for project metadata
+                        let repoInfo = null;
+                        if (isRepo) {
+                            try {
+                                repoInfo = await gitService.getRepoInfo(cwd);
+                            } catch (e) {
+                                logger.warn('link', 'Failed to get repo info for creation metadata', e as Error);
+                            }
+                        }
+
+                        const newProject = await apiService.createProject({
+                            name,
+                            description: description || undefined,
+                            repo_path: cwd,
+                            remote_url: repoInfo?.remoteUrl || undefined,
+                            default_branch: repoInfo?.currentBranch || undefined,
+                        });
+
+                        createSpinner.succeed('Project created successfully!');
+                        selectedProjectId = newProject.id;
+                        selectedProject = newProject;
+                    } catch (error) {
+                        createSpinner.fail('Failed to create project');
+                        throw error;
+                    }
+                }
 
                 // Link the project
                 const linkSpinner = ora('Linking project...').start();
                 await projectService.linkProject(cwd, selectedProjectId);
-
-                const selectedProject = projects.find((p) => p.id === selectedProjectId);
                 linkSpinner.succeed('Project linked successfully!');
 
                 console.log(chalk.green(`\n✓ Linked to ${chalk.bold(selectedProject?.name || selectedProjectId)}`));

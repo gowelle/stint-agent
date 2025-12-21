@@ -237,6 +237,25 @@ class ApiServiceImpl {
         logger.info('api', `Fetched user: ${user.email}`);
         return user;
     }
+
+    async createProject(data: {
+        name: string;
+        description?: string;
+        repo_path?: string;
+        remote_url?: string;
+        default_branch?: string;
+    }): Promise<Project> {
+        logger.info('api', `Creating project: ${data.name}`);
+
+        const response = await this.request<{ data: Project }>('/api/agent/projects', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+
+        const project = response.data;
+        logger.success('api', `Created project: ${project.name} (${project.id})`);
+        return project;
+    }
 }
 
 export const apiService = new ApiServiceImpl();

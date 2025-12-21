@@ -1,8 +1,10 @@
 import { Command } from 'commander';
 import ora from 'ora';
 import chalk from 'chalk';
+import { confirm } from '@inquirer/prompts';
 import { projectService } from '../services/project.js';
 import { apiService } from '../services/api.js';
+import { gitService } from '../services/git.js';
 import { commitQueue } from '../daemon/queue.js';
 import { logger } from '../utils/logger.js';
 import process from 'process';
@@ -69,7 +71,7 @@ export function registerCommitCommands(program: Command): void {
         .command('commit <id>')
         .description('Execute a specific pending commit')
         .action(async (id: string) => {
-            const spinner = ora('Executing commit...').start();
+            const spinner = ora('Checking repository status...').start();
 
             try {
                 const cwd = process.cwd();
@@ -80,6 +82,16 @@ export function registerCommitCommands(program: Command): void {
                     spinner.fail('Not linked');
                     console.log(chalk.yellow('\n⚠ This directory is not linked to any project.'));
                     console.log(chalk.gray('Run "stint link" first to link this directory.\n'));
+                    process.exit(1);
+                }
+
+                // Check for staged changes
+                const status = await gitService.getStatus(cwd);
+                if (status.staged.length === 0) {
+                    spinner.fail('No staged changes');
+                    console.log(chalk.yellow('\n⚠ No staged changes detected.'));
+                    console.log(chalk.gray('Please stage the files you want to commit first.'));
+                    console.log(chalk.gray('  git add <files>\n'));
                     process.exit(1);
                 }
 
@@ -97,8 +109,29 @@ export function registerCommitCommands(program: Command): void {
                     process.exit(1);
                 }
 
-                // Execute commit
-                spinner.text = `Executing commit: ${commit.message}`;
+                spinner.stop();
+
+                // Show staged files and confirm
+                console.log(chalk.blue('\n📋 Staged changes to commit:'));
+                console.log(chalk.gray('─'.repeat(40)));
+                status.staged.forEach(file => {
+                    console.log(chalk.green(`  + ${file}`));
+                });
+                console.log();
+                console.log(`${chalk.bold('Message:')}    ${commit.message}`);
+                console.log();
+
+                const confirmed = await confirm({
+                    message: 'Are you sure you want to commit these changes?',
+                    default: true,
+                });
+
+                if (!confirmed) {
+                    console.log(chalk.yellow('\nCommit cancelled.\n'));
+                    return;
+                }
+
+                const execSpinner = ora('Executing commit...').start();
 
                 // We need to create a minimal project object for execution
                 const project = {
@@ -110,7 +143,7 @@ export function registerCommitCommands(program: Command): void {
 
                 const sha = await commitQueue.executeCommit(commit, project);
 
-                spinner.succeed('Commit executed successfully!');
+                execSpinner.succeed('Commit executed successfully!');
 
                 console.log(chalk.green('\n✓ Commit executed'));
                 console.log(chalk.gray('─'.repeat(50)));
@@ -121,7 +154,11 @@ export function registerCommitCommands(program: Command): void {
 
                 logger.success('commit', `Executed commit ${commit.id} -> ${sha}`);
             } catch (error) {
-                spinner.fail('Commit execution failed');
+                // If spinner is still spinning, stop it
+                if (ora().isSpinning) {
+                    ora().fail('Commit execution failed');
+                }
+
                 logger.error('commit', 'Failed to execute commit', error as Error);
                 console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
                 process.exit(1);

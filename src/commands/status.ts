@@ -6,6 +6,9 @@ import { gitService } from '../services/git.js';
 import { authService } from '../services/auth.js';
 import { logger } from '../utils/logger.js';
 import process from 'process';
+import path from 'path';
+import os from 'os';
+import { validatePidFile } from '../utils/process.js';
 
 export function registerStatusCommand(program: Command): void {
     program
@@ -84,10 +87,21 @@ export function registerStatusCommand(program: Command): void {
                     console.log(chalk.gray('Run "stint login" to authenticate.'));
                 }
 
-                // Daemon Status (Phase 3 - placeholder)
+
+                // Daemon Status
                 console.log(chalk.blue('\n⚙️  Daemon:'));
                 console.log(chalk.gray('─'.repeat(50)));
-                console.log(`${chalk.bold('Status:')}      ${chalk.gray('Not running (Phase 3)')}`);
+
+                const { valid, pid } = validatePidFile();
+
+                if (valid && pid) {
+                    console.log(`${chalk.bold('Status:')}      ${chalk.green('✓ Running')}`);
+                    console.log(`${chalk.bold('PID:')}         ${pid}`);
+                    console.log(`${chalk.bold('Logs:')}        ${path.join(os.homedir(), '.config', 'stint', 'logs', 'daemon.log')}`);
+                } else {
+                    console.log(`${chalk.bold('Status:')}      ${chalk.yellow('Not running')}`);
+                    console.log(chalk.gray('Run "stint daemon start" to start the background agent.'));
+                }
                 console.log();
 
                 logger.info('status', 'Status command executed');

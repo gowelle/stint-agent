@@ -34,7 +34,7 @@ stint login
 # Check your authentication status
 stint whoami
 
-# Link a project
+# Link a project (or create a new one)
 cd /path/to/your/project
 stint link
 
@@ -46,6 +46,13 @@ stint daemon status
 ```
 
 ## Commands
+
+### General
+
+| Command | Description |
+|---------|-------------|
+| `stint --version`, `stint -V` | Show current agent version |
+| `stint --help`, `stint -h` | Show help information |
 
 ### Authentication
 
@@ -69,7 +76,7 @@ stint daemon status
 
 | Command | Description |
 |---------|-------------|
-| `stint link` | Link current directory to a Stint project |
+| `stint link` | Link current directory to a Stint project (or create a new one) |
 | `stint unlink [--force]` | Remove project link |
 | `stint status` | Show project, git, auth, and daemon status |
 | `stint sync` | Manually sync repository information to server |

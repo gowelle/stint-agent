@@ -73,20 +73,20 @@ class CommitQueueProcessor {
 
             // Check repository status
             const status = await gitService.getStatus(projectPath);
-            const hasChanges = status.staged.length > 0 || status.unstaged.length > 0 || status.untracked.length > 0;
 
-            if (hasChanges) {
-                throw new Error('Repository has uncommitted changes. Please commit or stash them first.');
+            // Allow committing if there ARE staged changes.
+            // Current workflow requires user to stage files manually.
+            const hasStagedChanges = status.staged.length > 0;
+
+            if (!hasStagedChanges) {
+                // If nothing is staged, we can't commit.
+                // Note: The previous logic blocked ANY dirty state. The new logic blocks only if NOTHING is staged.
+                throw new Error('No staged changes to commit. Please stage files using "git add" before committing.');
             }
 
-            // Stage files
-            if (commit.files && commit.files.length > 0) {
-                logger.info('queue', `Staging specific files: ${commit.files.join(', ')}`);
-                await gitService.stageFiles(projectPath, commit.files);
-            } else {
-                logger.info('queue', 'Staging all changes');
-                await gitService.stageAll(projectPath);
-            }
+            // Note: We deliberately SKIP auto-staging here.
+            // The user is expected to have prepared the index.
+            logger.info('queue', `Committing ${status.staged.length} staged files.`);
 
             // Create commit
             logger.info('queue', `Creating commit with message: "${commit.message}"`);

@@ -22,6 +22,10 @@ export async function startDaemon(): Promise<void> {
         // Validate authentication
         const user = await authService.validateToken();
         if (!user) {
+            notify({
+                title: 'Stint Agent',
+                message: 'Authentication expired. Please run "stint login" to reconnect.',
+            });
             throw new Error('Not authenticated. Please run "stint login" first.');
         }
 

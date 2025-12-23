@@ -283,7 +283,9 @@ describe('ApiService', () => {
     describe('syncProject', () => {
         it('should sync project with repo info', async () => {
             const repoInfo = {
+                repoPath: '/path/to/repo',
                 currentBranch: 'main',
+                defaultBranch: 'main',
                 branches: ['main', 'develop'],
                 remoteUrl: 'https://github.com/test/repo.git',
                 status: { staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 },
@@ -307,7 +309,12 @@ describe('ApiService', () => {
             );
 
             const callBody = JSON.parse(mockFetch.mock.calls[0][1].body);
-            expect(callBody).toEqual(repoInfo);
+            expect(callBody).toEqual({
+                repo_path: '/path/to/repo',
+                remote_url: 'https://github.com/test/repo.git',
+                default_branch: 'main',
+                current_branch: 'main',
+            });
         });
     });
 

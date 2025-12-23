@@ -62,11 +62,13 @@ stint daemon status
 | `stint logout` | Remove stored credentials |
 | `stint whoami` | Show current user and machine information |
 
-### Daemon
+### Daemon Lifecycle
 
 | Command | Description |
 |---------|-------------|
-| `stint daemon start` | Start background daemon |
+| `stint install` | Register daemon to run on system startup (Login required) |
+| `stint uninstall` | Remove daemon from system startup |
+| `stint daemon start` | Start background daemon manually |
 | `stint daemon stop` | Stop daemon gracefully |
 | `stint daemon status` | Check if daemon is running |
 | `stint daemon logs [--lines N]` | View daemon logs (default: 50 lines) |

@@ -9,6 +9,7 @@ const mockGit = {
     status: vi.fn(),
     add: vi.fn(),
     commit: vi.fn(),
+    raw: vi.fn(),
 };
 
 vi.mock('simple-git', () => ({
@@ -40,6 +41,7 @@ describe('GitService', () => {
         mockGit.status.mockReset();
         mockGit.add.mockReset();
         mockGit.commit.mockReset();
+        mockGit.raw.mockReset();
 
         const gitModule = await import('./git.js');
         gitService = gitModule.gitService;
@@ -89,6 +91,7 @@ describe('GitService', () => {
             mockGit.getRemotes.mockResolvedValue([
                 { name: 'origin', refs: { fetch: 'https://github.com/test/repo.git', push: 'https://github.com/test/repo.git' } },
             ]);
+            mockGit.raw.mockResolvedValue('refs/remotes/origin/main\n');
             mockGit.status.mockResolvedValue({
                 staged: ['file1.ts'],
                 modified: ['file2.ts'],
@@ -108,7 +111,9 @@ describe('GitService', () => {
             const info = await gitService.getRepoInfo('/path/to/repo');
 
             expect(info).toEqual({
+                repoPath: '/path/to/repo',
                 currentBranch: 'main',
+                defaultBranch: 'main',
                 branches: ['main', 'develop', 'feature/test'],
                 remoteUrl: 'https://github.com/test/repo.git',
                 status: {

@@ -34,6 +34,25 @@ class GitServiceImpl {
             const remotes = await git.getRemotes(true);
             const remoteUrl = remotes.length > 0 ? remotes[0].refs.fetch : null;
 
+            // Get default branch (what origin/HEAD points to)
+            let defaultBranch = currentBranch; // fallback to current branch
+            try {
+                // Try to get the remote's default branch by checking origin/HEAD
+                const result = await git.raw(['symbolic-ref', 'refs/remotes/origin/HEAD']);
+                const match = result.trim().match(/refs\/remotes\/origin\/(.+)/);
+                if (match) {
+                    defaultBranch = match[1];
+                }
+            } catch {
+                // If origin/HEAD doesn't exist, try common defaults
+                if (branches.includes('main')) {
+                    defaultBranch = 'main';
+                } else if (branches.includes('master')) {
+                    defaultBranch = 'master';
+                }
+                // Otherwise keep currentBranch as default
+            }
+
             // Get status
             const status = await this.getStatus(path);
 
@@ -46,7 +65,9 @@ class GitServiceImpl {
             }
 
             return {
+                repoPath: path,
                 currentBranch,
+                defaultBranch,
                 branches,
                 remoteUrl,
                 status,

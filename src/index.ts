@@ -12,6 +12,7 @@ import { registerStatusCommand } from './commands/status.js';
 import { registerSyncCommand } from './commands/sync.js';
 import { registerDaemonCommands } from './commands/daemon.js';
 import { registerCommitCommands } from './commands/commit.js';
+import { registerInstallCommand, registerUninstallCommand } from './commands/install.js';
 import { logger } from './utils/logger.js';
 
 // Version is injected at build time via tsup define
@@ -26,6 +27,7 @@ program
     .addHelpText('after', `
 ${chalk.bold('Examples:')}
   ${chalk.cyan('$')} stint login                 ${chalk.gray('# Authenticate with Stint')}
+  ${chalk.cyan('$')} stint install               ${chalk.gray('# Install agent to run on startup')}
   ${chalk.cyan('$')} stint link                  ${chalk.gray('# Link current directory to a project')}
   ${chalk.cyan('$')} stint daemon start          ${chalk.gray('# Start background daemon')}
   ${chalk.cyan('$')} stint status                ${chalk.gray('# Check status')}
@@ -45,6 +47,8 @@ registerStatusCommand(program);
 registerSyncCommand(program);
 registerDaemonCommands(program);
 registerCommitCommands(program);
+registerInstallCommand(program);
+registerUninstallCommand(program);
 
 
 

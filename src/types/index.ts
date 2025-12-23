@@ -67,7 +67,9 @@ export interface Suggestion {
 
 // Git Types
 export interface RepoInfo {
+    repoPath: string;
     currentBranch: string;
+    defaultBranch: string;
     branches: string[];
     remoteUrl: string | null;
     status: GitStatus;

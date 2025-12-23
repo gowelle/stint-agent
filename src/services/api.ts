@@ -235,9 +235,17 @@ class ApiServiceImpl {
         logger.info('api', `Syncing project ${projectId}`);
 
         await this.withRetry(async () => {
+            // Transform RepoInfo to match Laravel API's expected format
+            const payload = {
+                repo_path: data.repoPath,
+                remote_url: data.remoteUrl,
+                default_branch: data.defaultBranch,
+                current_branch: data.currentBranch,
+            };
+
             await this.request(`/api/agent/projects/${projectId}/sync`, {
                 method: 'POST',
-                body: JSON.stringify(data),
+                body: JSON.stringify(payload),
             });
 
             logger.success('api', `Project ${projectId} synced`);

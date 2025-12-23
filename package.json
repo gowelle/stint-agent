@@ -1,6 +1,6 @@
 {
   "name": "@gowelle/stint-agent",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Local agent for Stint - Project Assistant",
   "author": "Gowelle John <gowelle.john@icloud.com>",
   "license": "MIT",

@@ -9,6 +9,7 @@ import {
 import { config } from '../utils/config.js';
 import { authService } from './auth.js';
 import { logger } from '../utils/logger.js';
+import { CircuitBreaker } from '../utils/circuit-breaker.js';
 
 // Version is injected at build time via tsup define
 const AGENT_VERSION = process.env.AGENT_VERSION || '0.0.0';
@@ -39,7 +40,18 @@ interface ApiCommit {
 
 class ApiServiceImpl {
     private sessionId: string | null = null;
+    private circuitBreaker = new CircuitBreaker({
+        failureThreshold: 5,
+        successThreshold: 2,
+        timeout: 30000, // 30s before trying half-open
+        windowSize: 60000, // 60s failure window
+    });
 
+    /**
+     * Get authentication headers for API requests
+     * @returns Headers object with Authorization and Content-Type
+     * @throws Error if no authentication token is found
+     */
     private async getHeaders(): Promise<Record<string, string>> {
         const token = await authService.getToken();
         if (!token) {
@@ -52,6 +64,13 @@ class ApiServiceImpl {
         };
     }
 
+    /**
+     * Make an HTTP request to the API with circuit breaker protection
+     * @param endpoint - API endpoint path (e.g., '/api/user')
+     * @param options - Fetch options (method, body, headers, etc.)
+     * @returns Parsed JSON response
+     * @throws Error if request fails or circuit breaker is open
+     */
     private async request<T>(
         endpoint: string,
         options: RequestInit = {}
@@ -59,29 +78,36 @@ class ApiServiceImpl {
         const url = `${config.getApiUrl()}${endpoint}`;
         const headers = await this.getHeaders();
 
-        try {
-            const response = await fetch(url, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options.headers,
-                },
-            });
+        return this.circuitBreaker.execute(async () => {
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options.headers,
+                    },
+                });
 
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`API request failed: ${response.status} ${errorText}`);
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`API request failed: ${response.status} ${errorText}`);
+                }
+
+                return await response.json() as T;
+            } catch (error) {
+                logger.error('api', `Request to ${endpoint} failed`, error as Error);
+                throw error;
             }
-
-            return await response.json() as T;
-        } catch (error) {
-            logger.error('api', `Request to ${endpoint} failed`, error as Error);
-            throw error;
-        }
+        });
     }
 
     /**
      * Retry wrapper with exponential backoff
+     * @param operation - Async operation to retry
+     * @param operationName - Name for logging
+     * @param maxRetries - Maximum number of retry attempts (default: 3)
+     * @returns Result of the operation
+     * @throws Last error if all retries fail
      */
     private async withRetry<T>(
         operation: () => Promise<T>,
@@ -114,6 +140,11 @@ class ApiServiceImpl {
         throw lastError!;
     }
 
+    /**
+     * Connect agent session to the API
+     * @returns Agent session data including session ID
+     * @throws Error if connection fails
+     */
     async connect(): Promise<AgentSession> {
         logger.info('api', 'Connecting agent session...');
 
@@ -137,6 +168,10 @@ class ApiServiceImpl {
         }, 'Connect');
     }
 
+    /**
+     * Disconnect agent session from the API
+     * @param reason - Optional reason for disconnection
+     */
     async disconnect(reason?: string): Promise<void> {
         if (!this.sessionId) {
             return;
@@ -156,6 +191,10 @@ class ApiServiceImpl {
         logger.success('api', 'Agent session disconnected');
     }
 
+    /**
+     * Send heartbeat to keep session alive
+     * @throws Error if no active session
+     */
     async heartbeat(): Promise<void> {
         if (!this.sessionId) {
             throw new Error('No active session');
@@ -172,6 +211,11 @@ class ApiServiceImpl {
         }, 'Heartbeat');
     }
 
+    /**
+     * Get pending commits for a project
+     * @param projectId - Project ID
+     * @returns Array of pending commits
+     */
     async getPendingCommits(projectId: string): Promise<PendingCommit[]> {
         logger.info('api', `Fetching pending commits for project ${projectId}`);
 
@@ -191,6 +235,12 @@ class ApiServiceImpl {
         return commits;
     }
 
+    /**
+     * Mark a commit as successfully executed
+     * @param commitId - Commit ID
+     * @param sha - Git commit SHA
+     * @returns Updated commit data
+     */
     async markCommitExecuted(commitId: string, sha: string): Promise<Commit> {
         logger.info('api', `Marking commit ${commitId} as executed (SHA: ${sha})`);
 
@@ -220,6 +270,11 @@ class ApiServiceImpl {
         }, 'Mark commit executed');
     }
 
+    /**
+     * Mark a commit as failed
+     * @param commitId - Commit ID
+     * @param error - Error message
+     */
     async markCommitFailed(commitId: string, error: string): Promise<void> {
         logger.error('api', `Marking commit ${commitId} as failed: ${error}`);
 
@@ -231,6 +286,11 @@ class ApiServiceImpl {
         }, 'Mark commit failed');
     }
 
+    /**
+     * Sync project repository information with the API
+     * @param projectId - Project ID
+     * @param data - Repository information (path, remote URL, branches)
+     */
     async syncProject(projectId: string, data: RepoInfo): Promise<void> {
         logger.info('api', `Syncing project ${projectId}`);
 

@@ -21,6 +21,10 @@ class WebSocketServiceImpl {
     private agentDisconnectedHandlers: Array<(reason?: string) => void> = [];
     private syncRequestedHandlers: Array<(projectId: string) => void> = [];
 
+    /**
+     * Connect to the WebSocket server
+     * @throws Error if connection fails or no auth token available
+     */
     async connect(): Promise<void> {
         try {
             const token = await authService.getToken();
@@ -68,6 +72,10 @@ class WebSocketServiceImpl {
         }
     }
 
+    /**
+     * Disconnect from the WebSocket server
+     * Prevents automatic reconnection
+     */
     disconnect(): void {
         this.isManualDisconnect = true;
 
@@ -93,10 +101,18 @@ class WebSocketServiceImpl {
         }
     }
 
+    /**
+     * Check if WebSocket is currently connected
+     * @returns True if connected and ready
+     */
     isConnected(): boolean {
         return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
     }
 
+    /**
+     * Subscribe to user-specific channel for real-time updates
+     * @param userId - User ID to subscribe to
+     */
     subscribeToUserChannel(userId: string): void {
         this.userId = userId;
 
@@ -116,6 +132,10 @@ class WebSocketServiceImpl {
         });
     }
 
+    /**
+     * Register handler for commit approved events
+     * @param handler - Callback function
+     */
     onCommitApproved(handler: (commit: PendingCommit, project: Project) => void): void {
         this.commitApprovedHandlers.push(handler);
     }
@@ -254,11 +274,19 @@ class WebSocketServiceImpl {
         }
     }
 
+    /**
+     * Get reconnect delay with exponential backoff and jitter
+     * Jitter prevents thundering herd problem when many clients reconnect simultaneously
+     */
     private getReconnectDelay(): number {
         // Exponential backoff: 1s, 2s, 4s, 8s, 16s, 30s (max)
         const delays = [1000, 2000, 4000, 8000, 16000, 30000];
         const index = Math.min(this.reconnectAttempts, delays.length - 1);
-        return delays[index];
+        const baseDelay = delays[index];
+
+        // Add 0-30% jitter to prevent synchronized reconnections
+        const jitter = baseDelay * (Math.random() * 0.3);
+        return Math.floor(baseDelay + jitter);
     }
 }
 

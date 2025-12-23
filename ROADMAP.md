@@ -7,16 +7,16 @@ The `stint-agent` is a critical component of the Stint ecosystem, serving as the
 **Focus:** Reliability, Testing, and User Feedback Loop.
 
 *   **Comprehensive Test Coverage**:
-    *   [ ] Achieve >90% code coverage for core services (`GitService`, `ApiService`, `WebSocketService`).
-    *   [ ] Add integration tests for the full "Command -> Queue -> Execution" flow.
-    *   [ ] Implement E2E tests for the `install` and `autostart` flows on Windows, macOS, and Linux.
+    *   [x] Achieve >90% code coverage for core services (`GitService`, `ApiService`, `WebSocketService`).
+    *   [x] Add integration tests for the full "Command -> Queue -> Execution" flow.
+    *   [x] Implement E2E tests for the `install` and `autostart` flows on Windows, macOS, and Linux.
 *   **Error Handling & recovery**:
-    *   [ ] Improve exponential backoff for WebSocket reconnection strategies.
-    *   [ ] Implement "Circuit Breaker" pattern for API calls to prevent cascading failures.
-    *   [ ] Enhance `git` error parsing to provide human-readable suggestions (e.g., "Merge conflict detected" instead of raw git output).
+    *   [x] Improve exponential backoff for WebSocket reconnection strategies.
+    *   [x] Implement "Circuit Breaker" pattern for API calls to prevent cascading failures.
+    *   [x] Enhance `git` error parsing to provide human-readable suggestions (e.g., "Merge conflict detected" instead of raw git output).
 *   **Documentation**:
-    *   [ ] complete inline code documentation (JSDoc).
-    *   [ ] Create a troubleshooting guide for common connection/daemon issues.
+    *   [x] complete inline code documentation (JSDoc).
+    *   [x] Create a troubleshooting guide for common connection/daemon issues.
 
 ## 2. Short-term Goals (v1.2.0 - The "Experience" Release)
 **Focus:** Developer Experience (DX) and Ease of Use.

@@ -9,6 +9,11 @@ class GitServiceImpl {
         return simpleGit(path);
     }
 
+    /**
+     * Check if a directory is a git repository
+     * @param path - Directory path to check
+     * @returns True if directory is a git repository
+     */
     async isRepo(path: string): Promise<boolean> {
         try {
             const git = this.getGit(path);
@@ -19,6 +24,12 @@ class GitServiceImpl {
         }
     }
 
+    /**
+     * Get comprehensive repository information
+     * @param path - Repository path
+     * @returns Repository info including branches, status, and last commit
+     * @throws Error if not a valid repository or no commits found
+     */
     async getRepoInfo(path: string): Promise<RepoInfo> {
         try {
             const git = this.getGit(path);

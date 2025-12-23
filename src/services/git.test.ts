@@ -10,6 +10,7 @@ const mockGit = {
     add: vi.fn(),
     commit: vi.fn(),
     raw: vi.fn(),
+    revparse: vi.fn(),
 };
 
 vi.mock('simple-git', () => ({
@@ -42,6 +43,7 @@ describe('GitService', () => {
         mockGit.add.mockReset();
         mockGit.commit.mockReset();
         mockGit.raw.mockReset();
+        mockGit.revparse.mockReset();
 
         const gitModule = await import('./git.js');
         gitService = gitModule.gitService;
@@ -287,6 +289,71 @@ describe('GitService', () => {
             await expect(gitService.getStatus('/path')).rejects.toThrow(
                 'Failed to get git status'
             );
+        });
+    });
+
+    describe('getRepoRoot', () => {
+        it('should return repo root path', async () => {
+            mockGit.revparse.mockResolvedValue('/home/user/projects/my-repo\n');
+
+            const root = await gitService.getRepoRoot('/home/user/projects/my-repo/src');
+
+            expect(mockGit.revparse).toHaveBeenCalledWith(['--show-toplevel']);
+            expect(root).toBe('/home/user/projects/my-repo');
+        });
+
+        it('should return null on error', async () => {
+            mockGit.revparse.mockRejectedValue(new Error('Not a git repo'));
+
+            const root = await gitService.getRepoRoot('/not/a/repo');
+
+            expect(root).toBeNull();
+        });
+    });
+
+    describe('getBranches error handling', () => {
+        it('should throw error on failure', async () => {
+            mockGit.branch.mockRejectedValue(new Error('Branch failed'));
+
+            await expect(gitService.getBranches('/path')).rejects.toThrow(
+                'Failed to get branches'
+            );
+        });
+    });
+
+    describe('getRepoInfo with master fallback', () => {
+        it('should fallback to master when origin/HEAD fails', async () => {
+            mockGit.branch.mockResolvedValue({
+                current: 'feature/test',
+                all: ['master', 'feature/test'],
+                branches: {
+                    master: { commit: 'abc123' },
+                    'feature/test': { commit: 'def456' },
+                },
+            });
+            mockGit.getRemotes.mockResolvedValue([
+                { name: 'origin', refs: { fetch: 'https://github.com/test/repo.git', push: 'https://github.com/test/repo.git' } },
+            ]);
+            mockGit.raw.mockRejectedValue(new Error('No origin/HEAD'));
+            mockGit.status.mockResolvedValue({
+                staged: [],
+                modified: [],
+                deleted: [],
+                not_added: [],
+                ahead: 0,
+                behind: 0,
+            });
+            mockGit.log.mockResolvedValue({
+                latest: {
+                    hash: 'abc123def456',
+                    message: 'Initial commit',
+                    date: '2024-01-01T00:00:00Z',
+                },
+            });
+
+            const info = await gitService.getRepoInfo('/path/to/repo');
+
+            expect(info.defaultBranch).toBe('master');
         });
     });
 });

@@ -19,7 +19,7 @@ const SYSTEMD_SERVICE_NAME = 'stint-agent.service';
 /**
  * Get the command to run the daemon
  */
-function getDaemonCommand(): string {
+export function getDaemonCommand(): string {
     // Use the current script path as the entry point
     // This works for both dev (ts-node src/index.ts) and prod (node dist/index.js)
     const scriptPath = process.argv[1];
@@ -29,7 +29,7 @@ function getDaemonCommand(): string {
 /**
  * Windows implementation
  */
-async function installWindows(): Promise<void> {
+export async function installWindows(): Promise<void> {
     const command = getDaemonCommand();
 
     // For schtasks, we need to escape backslashes and double quotes
@@ -47,14 +47,14 @@ async function installWindows(): Promise<void> {
     }
 }
 
-async function uninstallWindows(): Promise<void> {
+export async function uninstallWindows(): Promise<void> {
     await execAsync(`schtasks /Delete /TN "${WINDOWS_TASK_NAME}" /F`);
 }
 
 /**
  * macOS implementation
  */
-function getMacPlistContent(): string {
+export function getMacPlistContent(): string {
     const scriptPath = process.argv[1];
     const logPath = path.join(os.homedir(), '.config', 'stint', 'logs', 'launchd.log');
     const errorPath = path.join(os.homedir(), '.config', 'stint', 'logs', 'launchd.error.log');
@@ -93,7 +93,7 @@ function getMacPlistContent(): string {
 </plist>`;
 }
 
-async function installMac(): Promise<void> {
+export async function installMac(): Promise<void> {
     const plistContent = getMacPlistContent();
     const launchAgentsDir = path.join(os.homedir(), 'Library', 'LaunchAgents');
     const plistPath = path.join(launchAgentsDir, MAC_PLIST_NAME);
@@ -114,7 +114,7 @@ async function installMac(): Promise<void> {
     await execAsync(`launchctl load "${plistPath}"`);
 }
 
-async function uninstallMac(): Promise<void> {
+export async function uninstallMac(): Promise<void> {
     const launchAgentsDir = path.join(os.homedir(), 'Library', 'LaunchAgents');
     const plistPath = path.join(launchAgentsDir, MAC_PLIST_NAME);
 
@@ -131,7 +131,7 @@ async function uninstallMac(): Promise<void> {
 /**
  * Linux implementation (systemd)
  */
-function getSystemdServiceContent(): string {
+export function getSystemdServiceContent(): string {
     const scriptPath = process.argv[1];
 
     return `[Unit]
@@ -150,7 +150,7 @@ StandardError=journal
 WantedBy=default.target`;
 }
 
-async function installLinux(): Promise<void> {
+export async function installLinux(): Promise<void> {
     const systemdDir = path.join(os.homedir(), '.config', 'systemd', 'user');
     const servicePath = path.join(systemdDir, SYSTEMD_SERVICE_NAME);
 
@@ -166,7 +166,7 @@ async function installLinux(): Promise<void> {
     await execAsync(`systemctl --user start ${SYSTEMD_SERVICE_NAME}`);
 }
 
-async function uninstallLinux(): Promise<void> {
+export async function uninstallLinux(): Promise<void> {
     const systemdDir = path.join(os.homedir(), '.config', 'systemd', 'user');
     const servicePath = path.join(systemdDir, SYSTEMD_SERVICE_NAME);
 

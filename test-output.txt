@@ -1,0 +1,121 @@
+
+[1m[46m RUN [49m[22m [36mv4.0.16 [39m[90mC:/Users/John Gowelle/Apps/stint-agent[39m
+
+ [31mΓ¥»[39m src/commands/install.e2e.test.ts [2m([22m[2m16 tests[22m[2m | [22m[31m2 failed[39m[2m)[22m[32m 135[2mms[22m[39m
+       [32mΓ£ô[39m should create task scheduler entry with correct command[32m 118[2mms[22m[39m
+       [32mΓ£ô[39m should handle access denied error[32m 2[2mms[22m[39m
+       [32mΓ£ô[39m should uninstall task scheduler entry[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should create LaunchAgent plist file[39m[32m 6[2mms[22m[39m
+       [32mΓ£ô[39m should load LaunchAgent with launchctl[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should unload existing LaunchAgent before loading[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should uninstall LaunchAgent[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should generate valid plist content[32m 1[2mms[22m[39m
+[31m       [31m├ù[31m should create systemd user service file[39m[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should enable and start systemd service[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should uninstall systemd service[32m 1[2mms[22m[39m
+       [32mΓ£ô[39m should generate valid systemd service content[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should throw error for unsupported platform[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should require authentication before installation[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should proceed with installation when authenticated[32m 0[2mms[22m[39m
+       [32mΓ£ô[39m should construct correct daemon command[32m 0[2mms[22m[39m
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 2 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/commands/install.e2e.test.ts > Install Command E2E Tests > macOS Installation > should create LaunchAgent plist file
+AssertionError: expected "writeFileSync" to be called with arguments: [ ΓÇª(2) ]
+
+Received: 
+
+  1st writeFileSync call:
+
+  [
+-   "/Users/testuser/Library/LaunchAgents/codes.stint.agent.plist",
+-   StringContaining "<?xml version=\"1.0\"",
++   "\\Users\\testuser\\Library\\LaunchAgents\\codes.stint.agent.plist",
++   "<?xml version=\"1.0\" encoding=\"UTF-8\"?>
++ <!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">
++ <plist version=\"1.0\">
++ <dict>
++     <key>Label</key>
++     <string>codes.stint.agent</string>
++     <key>ProgramArguments</key>
++     <array>
++         <string>C:\\Program Files\\nodejs\\node.exe</string>
++         <string>C:\\Users\\John Gowelle\\Apps\\stint-agent\\node_modules\\vitest\\dist\\workers\\forks.js</string>
++         <string>daemon</string>
++         <string>start</string>
++     </array>
++     <key>RunAtLoad</key>
++     <true/>
++     <key>StandardOutPath</key>
++     <string>\\Users\\testuser\\.config\\stint\\logs\\launchd.log</string>
++     <key>StandardErrorPath</key>
++     <string>\\Users\\testuser\\.config\\stint\\logs\\launchd.error.log</string>
++     <key>EnvironmentVariables</key>
++     <dict>
++         <key>PATH</key>
++         <string>/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
++     </dict>
++ </dict>
++ </plist>",
+  ]
+
+
+Number of calls: 1
+
+ Γ¥» src/commands/install.e2e.test.ts:120:38
+    118| 
+    119|             expect(mkdirSyncSpy).toHaveBeenCalled();
+    120|             expect(writeFileSyncSpy).toHaveBeenCalledWith(
+       |                                      ^
+    121|                 expectedPlistPath,
+    122|                 expect.stringContaining('<?xml version="1.0"')
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/2]ΓÄ»
+
+ FAIL  src/commands/install.e2e.test.ts > Install Command E2E Tests > Linux Installation > should create systemd user service file
+AssertionError: expected "writeFileSync" to be called with arguments: [ ΓÇª(2) ]
+
+Received: 
+
+  1st writeFileSync call:
+
+  [
+-   "/home/testuser/.config/systemd/user/stint-agent.service",
+-   StringContaining "[Unit]",
++   "\\home\\testuser\\.config\\systemd\\user\\stint-agent.service",
++   "[Unit]
++ Description=Stint Agent (Project Assistant)
++ After=network.target
++
++ [Service]
++ Type=forking
++ ExecStart=C:\\Program Files\\nodejs\\node.exe \"C:\\Users\\John Gowelle\\Apps\\stint-agent\\node_modules\\vitest\\dist\\workers\\forks.js\" daemon start
++ Restart=on-failure
++ RestartSec=5
++ StandardOutput=journal
++ StandardError=journal
++
++ [Install]
++ WantedBy=default.target",
+  ]
+
+
+Number of calls: 1
+
+ Γ¥» src/commands/install.e2e.test.ts:190:38
+    188| 
+    189|             expect(mkdirSyncSpy).toHaveBeenCalled();
+    190|             expect(writeFileSyncSpy).toHaveBeenCalledWith(
+       |                                      ^
+    191|                 expectedServicePath,
+    192|                 expect.stringContaining('[Unit]')
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[2/2]ΓÄ»
+
+
+[2m Test Files [22m [1m[31m1 failed[39m[22m[90m (1)[39m
+[2m      Tests [22m [1m[31m2 failed[39m[22m[2m | [22m[1m[32m14 passed[39m[22m[90m (16)[39m
+[2m   Start at [22m 05:38:28
+[2m   Duration [22m 435ms[2m (transform 115ms, setup 0ms, import 129ms, tests 135ms, environment 0ms)[22m
+

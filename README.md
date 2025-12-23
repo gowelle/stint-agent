@@ -113,32 +113,30 @@ stint status
 
 ## Troubleshooting
 
-### "Not authenticated" error
+For comprehensive troubleshooting help, see the **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)**.
 
-Run `stint login` to authenticate with your Stint account.
+### Quick Tips
 
-### "Repository has uncommitted changes"
-
-The agent requires a clean repository to execute commits:
-
+**"Not authenticated" error**
 ```bash
-git stash                  # Temporarily stash changes
-# or
-git add . && git commit -m "message"
+stint login
 ```
 
-### Daemon won't start
-
+**Daemon won't start**
 ```bash
 stint daemon status        # Check if already running
 stint daemon logs          # Check logs for errors
-stint daemon stop          # Stop first
-stint daemon start         # Then start again
+stint daemon restart       # Restart daemon
 ```
 
-### WebSocket connection issues
+**For detailed solutions**, including:
+- Connection issues (WebSocket, API, Circuit Breaker)
+- Daemon problems (crashes, autostart)
+- Authentication errors
+- Git operation failures
+- Platform-specific issues (Windows, macOS, Linux)
 
-Check your network connection and firewall settings.
+See the **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)**.
 
 ## Logging
 

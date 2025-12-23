@@ -160,6 +160,17 @@ class GitServiceImpl {
             throw new Error(`Failed to get git status: ${(error as Error).message}`);
         }
     }
+
+    async getRepoRoot(path: string): Promise<string | null> {
+        try {
+            const git = this.getGit(path);
+            const root = await git.revparse(['--show-toplevel']);
+            return root.trim();
+        } catch {
+            // Not a git repo or other error, return null to be safe
+            return null;
+        }
+    }
 }
 
 export const gitService = new GitServiceImpl();

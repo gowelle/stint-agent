@@ -24,7 +24,7 @@ const program = new Command();
 program
     .name('stint')
     .description('Stint Agent - Local daemon for Stint Project Assistant')
-    .version(AGENT_VERSION, '-v, -V, --version', 'output the current version')
+    .version(AGENT_VERSION, '-v, --version', 'output the current version')
     .addHelpText('after', `
 ${chalk.bold('Examples:')}
   ${chalk.cyan('$')} stint login                 ${chalk.gray('# Authenticate with Stint')}

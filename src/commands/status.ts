@@ -21,7 +21,7 @@ export function registerStatusCommand(program: Command): void {
                 const cwd = process.cwd();
 
                 // Get linked project
-                const linkedProject = projectService.getLinkedProject(cwd);
+                const linkedProject = await projectService.getLinkedProject(cwd);
 
                 // Get authentication status
                 const user = await authService.validateToken();

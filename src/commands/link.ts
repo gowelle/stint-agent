@@ -22,7 +22,7 @@ export function registerLinkCommand(program: Command): void {
                 const cwd = process.cwd();
 
                 // Check if already linked
-                const existingLink = projectService.getLinkedProject(cwd);
+                const existingLink = await projectService.getLinkedProject(cwd);
                 if (existingLink) {
                     spinner.warn('Directory already linked');
                     console.log(chalk.yellow(`\n⚠ This directory is already linked to project ${existingLink.projectId}`));

@@ -14,6 +14,7 @@ vi.mock('../utils/config.js', () => ({
 vi.mock('./git.js', () => ({
     gitService: {
         isRepo: vi.fn(),
+        getRepoRoot: vi.fn(),
     },
 }));
 
@@ -50,14 +51,15 @@ describe('ProjectService', () => {
     });
 
     describe('linkProject', () => {
-        it('should link valid git repository', async () => {
+        it('should link valid git repository using repo root', async () => {
+            (gitService.getRepoRoot as Mock).mockResolvedValue('/path/to/repo/root');
             (gitService.isRepo as Mock).mockResolvedValue(true);
 
-            await projectService.linkProject('/path/to/repo', 'proj-123');
+            await projectService.linkProject('/path/to/repo/root/src', 'proj-123');
 
-            expect(gitService.isRepo).toHaveBeenCalled();
+            expect(gitService.getRepoRoot).toHaveBeenCalled();
             expect(config.setProject).toHaveBeenCalledWith(
-                expect.stringContaining('repo'),
+                expect.stringMatching(/root$/),
                 expect.objectContaining({
                     projectId: 'proj-123',
                     linkedAt: expect.any(String),
@@ -65,7 +67,8 @@ describe('ProjectService', () => {
             );
         });
 
-        it('should resolve relative paths to absolute', async () => {
+        it('should fallback to absolute path if repo root not found but isRepo is true', async () => {
+            (gitService.getRepoRoot as Mock).mockResolvedValue(null);
             (gitService.isRepo as Mock).mockResolvedValue(true);
 
             await projectService.linkProject('./relative/path', 'proj-123');
@@ -77,6 +80,7 @@ describe('ProjectService', () => {
         });
 
         it('should throw error for non-git directory', async () => {
+            (gitService.getRepoRoot as Mock).mockResolvedValue(null);
             (gitService.isRepo as Mock).mockResolvedValue(false);
 
             await expect(projectService.linkProject('/not/a/repo', 'proj-123')).rejects.toThrow(
@@ -87,25 +91,27 @@ describe('ProjectService', () => {
         });
 
         it('should throw error if git check fails', async () => {
-            (gitService.isRepo as Mock).mockRejectedValue(new Error('Git error'));
+            (gitService.getRepoRoot as Mock).mockRejectedValue(new Error('Git error'));
 
             await expect(projectService.linkProject('/path', 'proj-123')).rejects.toThrow();
         });
     });
 
     describe('unlinkProject', () => {
-        it('should unlink existing project', async () => {
+        it('should unlink existing project via root lookup', async () => {
+            (gitService.getRepoRoot as Mock).mockResolvedValue('/path/to/repo');
             (config.getProject as Mock).mockReturnValue({
                 projectId: 'proj-123',
                 linkedAt: '2024-01-01T00:00:00Z',
             });
 
-            await projectService.unlinkProject('/path/to/repo');
+            await projectService.unlinkProject('/path/to/repo/subdir');
 
-            expect(config.removeProject).toHaveBeenCalled();
+            expect(config.removeProject).toHaveBeenCalledWith(expect.stringMatching(/repo$/));
         });
 
         it('should throw error if project not linked', async () => {
+            (gitService.getRepoRoot as Mock).mockResolvedValue(null);
             (config.getProject as Mock).mockReturnValue(undefined);
 
             await expect(projectService.unlinkProject('/not/linked')).rejects.toThrow(
@@ -117,19 +123,36 @@ describe('ProjectService', () => {
     });
 
     describe('getLinkedProject', () => {
-        it('should return linked project', () => {
+        it('should return linked project from exact match', async () => {
             const linkedProject = { projectId: 'proj-123', linkedAt: '2024-01-01T00:00:00Z' };
             (config.getProject as Mock).mockReturnValue(linkedProject);
 
-            const result = projectService.getLinkedProject('/path/to/repo');
+            const result = await projectService.getLinkedProject('/path/to/repo');
 
             expect(result).toEqual(linkedProject);
         });
 
-        it('should return null if not linked', () => {
-            (config.getProject as Mock).mockReturnValue(undefined);
+        it('should return linked project from repo root lookup', async () => {
+            const linkedProject = { projectId: 'proj-root', linkedAt: '2024-01-01T00:00:00Z' };
+            // First call (exact) returns undefined
+            // Second call (root) returns project
+            (config.getProject as Mock)
+                .mockReturnValueOnce(undefined)
+                .mockReturnValueOnce(linkedProject);
 
-            const result = projectService.getLinkedProject('/not/linked');
+            (gitService.getRepoRoot as Mock).mockResolvedValue('/path/to/root');
+
+            const result = await projectService.getLinkedProject('/path/to/root/subdir');
+
+            expect(result).toEqual(linkedProject);
+            expect(gitService.getRepoRoot).toHaveBeenCalled();
+        });
+
+        it('should return null if not linked anywhere', async () => {
+            (config.getProject as Mock).mockReturnValue(undefined);
+            (gitService.getRepoRoot as Mock).mockResolvedValue(null);
+
+            const result = await projectService.getLinkedProject('/not/linked');
 
             expect(result).toBeNull();
         });

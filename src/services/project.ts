@@ -10,10 +10,16 @@ class ProjectServiceImpl {
             // Ensure path is absolute
             const absolutePath = path.resolve(projectPath);
 
-            // Validate it's a git repository
-            const isRepo = await gitService.isRepo(absolutePath);
-            if (!isRepo) {
-                throw new Error(`${absolutePath} is not a git repository`);
+            // Get repo root to link against the root instead of a subdir
+            const repoRoot = await gitService.getRepoRoot(absolutePath);
+            const linkPath = repoRoot || absolutePath;
+
+            // Validate it's a git repository (if we didn't get root, we double check isRepo)
+            if (!repoRoot) {
+                const isRepo = await gitService.isRepo(absolutePath);
+                if (!isRepo) {
+                    throw new Error(`${absolutePath} is not a git repository`);
+                }
             }
 
             // Create linked project object
@@ -23,9 +29,9 @@ class ProjectServiceImpl {
             };
 
             // Save to config
-            config.setProject(absolutePath, linkedProject);
+            config.setProject(linkPath, linkedProject);
 
-            logger.success('project', `Linked ${absolutePath} to project ${projectId}`);
+            logger.success('project', `Linked ${linkPath} must be to project ${projectId}`);
         } catch (error) {
             logger.error('project', 'Failed to link project', error as Error);
             throw error;
@@ -36,25 +42,40 @@ class ProjectServiceImpl {
         try {
             const absolutePath = path.resolve(projectPath);
 
-            // Check if project exists
-            const linkedProject = this.getLinkedProject(absolutePath);
+            // Check if project exists (resolve root first)
+            const repoRoot = await gitService.getRepoRoot(absolutePath);
+            const lookupPath = repoRoot || absolutePath;
+
+            const linkedProject = config.getProject(lookupPath);
             if (!linkedProject) {
                 throw new Error(`${absolutePath} is not linked to any project`);
             }
 
             // Remove from config
-            config.removeProject(absolutePath);
+            config.removeProject(lookupPath);
 
-            logger.success('project', `Unlinked ${absolutePath}`);
+            logger.success('project', `Unlinked ${lookupPath}`);
         } catch (error) {
             logger.error('project', 'Failed to unlink project', error as Error);
             throw error;
         }
     }
 
-    getLinkedProject(projectPath: string): LinkedProject | null {
+    async getLinkedProject(projectPath: string): Promise<LinkedProject | null> {
         const absolutePath = path.resolve(projectPath);
-        return config.getProject(absolutePath) || null;
+
+        // 1. Check exact match first (legacy support or non-git folders)
+        let project = config.getProject(absolutePath);
+        if (project) return project;
+
+        // 2. Resolve git root and check that
+        const repoRoot = await gitService.getRepoRoot(absolutePath);
+        if (repoRoot) {
+            project = config.getProject(repoRoot);
+            if (project) return project;
+        }
+
+        return null;
     }
 
     getAllLinkedProjects(): Record<string, LinkedProject> {

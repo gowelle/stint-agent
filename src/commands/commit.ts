@@ -21,7 +21,7 @@ export function registerCommitCommands(program: Command): void {
                 const cwd = process.cwd();
 
                 // Check if directory is linked
-                const linkedProject = projectService.getLinkedProject(cwd);
+                const linkedProject = await projectService.getLinkedProject(cwd);
                 if (!linkedProject) {
                     spinner.fail('Not linked');
                     console.log(chalk.yellow('\n⚠ This directory is not linked to any project.'));
@@ -77,7 +77,7 @@ export function registerCommitCommands(program: Command): void {
                 const cwd = process.cwd();
 
                 // Check if directory is linked
-                const linkedProject = projectService.getLinkedProject(cwd);
+                const linkedProject = await projectService.getLinkedProject(cwd);
                 if (!linkedProject) {
                     spinner.fail('Not linked');
                     console.log(chalk.yellow('\n⚠ This directory is not linked to any project.'));

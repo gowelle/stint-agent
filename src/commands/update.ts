@@ -6,18 +6,11 @@ import { promisify } from 'util';
 import {
     validatePidFile,
     killProcess,
-    spawnDetached,
     isProcessRunning,
 } from '../utils/process.js';
 import { logger } from '../utils/logger.js';
-import path from 'path';
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-import fs from 'fs';
 
 const execAsync = promisify(exec);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
 
 export function registerUpdateCommand(program: Command): void {
     program

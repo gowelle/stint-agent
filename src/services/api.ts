@@ -13,6 +13,30 @@ import { logger } from '../utils/logger.js';
 // Version is injected at build time via tsup define
 const AGENT_VERSION = process.env.AGENT_VERSION || '0.0.0';
 
+interface ApiPendingCommit {
+    id: string;
+    project_id?: string;
+    projectId?: string;
+    message: string;
+    files?: string[];
+    created_at?: string;
+    createdAt?: string;
+}
+
+interface ApiCommit {
+    id: string;
+    project_id?: string;
+    projectId?: string;
+    message: string;
+    sha?: string;
+    status: 'pending' | 'executed' | 'failed';
+    created_at?: string;
+    createdAt?: string;
+    executed_at?: string;
+    executedAt?: string;
+    error?: string;
+}
+
 class ApiServiceImpl {
     private sessionId: string | null = null;
 
@@ -113,7 +137,7 @@ class ApiServiceImpl {
         }, 'Connect');
     }
 
-    async disconnect(): Promise<void> {
+    async disconnect(reason?: string): Promise<void> {
         if (!this.sessionId) {
             return;
         }
@@ -124,6 +148,7 @@ class ApiServiceImpl {
             method: 'POST',
             body: JSON.stringify({
                 session_id: this.sessionId,
+                reason: reason || 'Agent disconnected',
             }),
         });
 
@@ -150,7 +175,7 @@ class ApiServiceImpl {
     async getPendingCommits(projectId: string): Promise<PendingCommit[]> {
         logger.info('api', `Fetching pending commits for project ${projectId}`);
 
-        const response = await this.request<{ data: any[] }>(
+        const response = await this.request<{ data: ApiPendingCommit[] }>(
             `/api/agent/pending-commits?project_id=${projectId}`
         );
 
@@ -170,7 +195,7 @@ class ApiServiceImpl {
         logger.info('api', `Marking commit ${commitId} as executed (SHA: ${sha})`);
 
         return this.withRetry(async () => {
-            const response = await this.request<{ data: any }>(
+            const response = await this.request<{ data: ApiCommit }>(
                 `/api/agent/commits/${commitId}/executed`,
                 {
                     method: 'POST',

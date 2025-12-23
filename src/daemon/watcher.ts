@@ -122,10 +122,10 @@ export class FileWatcher {
             if (pattern.includes('*')) {
                 // Escape all special regex characters except *
                 let escapedPattern = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&');
-                
+
                 // Replace * with .* (match any characters)
                 escapedPattern = escapedPattern.replace(/\*/g, '.*');
-                
+
                 // Anchor the pattern based on wildcard position for proper glob matching
                 let regexPattern: string;
                 if (pattern.startsWith('*') && pattern.endsWith('*')) {
@@ -141,7 +141,7 @@ export class FileWatcher {
                     // Pattern with * in middle - match entire filename
                     regexPattern = `^${escapedPattern}$`;
                 }
-                
+
                 const regex = new RegExp(regexPattern);
                 if (regex.test(filename)) {
                     return true;
@@ -239,6 +239,23 @@ export class FileWatcher {
      */
     addProject(projectPath: string, projectId: string): void {
         this.watchProject(projectPath, projectId);
+    }
+
+    /**
+     * Sync a project by ID (called when server requests a sync)
+     */
+    async syncProjectById(projectId: string): Promise<void> {
+        // Find the project path from linked projects
+        const linkedProjects = projectService.getAllLinkedProjects();
+
+        for (const [projectPath, linkedProject] of Object.entries(linkedProjects)) {
+            if (linkedProject.projectId === projectId) {
+                await this.performSync(projectPath, projectId);
+                return;
+            }
+        }
+
+        logger.warn('watcher', `Cannot sync: project ${projectId} not found in linked projects`);
     }
 
     /**

@@ -35,21 +35,15 @@ ${chalk.bold('Documentation:')}
   For more information, visit: ${chalk.blue('https://stint.codes/docs')}
     `);
 
-// Register Phase 1 commands
+// Register commands
 registerLoginCommand(program);
 registerLogoutCommand(program);
 registerWhoamiCommand(program);
-
-// Register Phase 2 commands
 registerLinkCommand(program);
 registerUnlinkCommand(program);
 registerStatusCommand(program);
 registerSyncCommand(program);
-
-// Register Phase 3 commands
 registerDaemonCommands(program);
-
-// Register Phase 5 commands
 registerCommitCommands(program);
 
 

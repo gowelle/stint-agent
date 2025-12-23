@@ -5,9 +5,11 @@ import { commitQueue } from './queue.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
 import { FileWatcher } from './watcher.js';
+import { notify } from '../utils/notify.js';
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
+let shutdownReason: string | undefined;
 const fileWatcher = new FileWatcher();
 
 /**
@@ -52,6 +54,35 @@ export async function startDaemon(): Promise<void> {
 
         websocketService.onDisconnect(() => {
             logger.warn('daemon', 'WebSocket disconnected, will attempt to reconnect');
+        });
+
+        // Handle server-initiated disconnects (e.g., session invalidated, kicked by admin)
+        websocketService.onAgentDisconnected(async (reason) => {
+            logger.warn('daemon', `Server disconnected agent: ${reason}`);
+            logger.info('daemon', 'Initiating graceful shutdown...');
+            await shutdown(`Server: ${reason}`);
+            process.exit(0);
+        });
+
+        // Handle suggestion created
+        websocketService.onSuggestionCreated((suggestion) => {
+            logger.info('daemon', `Suggestion created: ${suggestion.title} (${suggestion.priority})`);
+
+            notify({
+                title: 'New Suggestion',
+                message: `${suggestion.title}\nPriority: ${suggestion.priority}`,
+                open: `https://stint.codes/projects/${suggestion.project_id}/suggestions/${suggestion.id}` // Hypothetical URL structure
+            });
+        });
+
+        // Handle sync requests from server
+        websocketService.onSyncRequested(async (projectId) => {
+            logger.info('daemon', `Server requested sync for project: ${projectId}`);
+            try {
+                await fileWatcher.syncProjectById(projectId);
+            } catch (error) {
+                logger.error('daemon', `Failed to sync project ${projectId}`, error as Error);
+            }
         });
 
         // Set up signal handlers for graceful shutdown
@@ -133,7 +164,7 @@ function setupSignalHandlers(): void {
     signals.forEach((signal) => {
         process.on(signal, async () => {
             logger.info('daemon', `Received ${signal}, shutting down...`);
-            await shutdown();
+            await shutdown(`Signal: ${signal}`);
             process.exit(0);
         });
     });
@@ -144,9 +175,10 @@ function setupSignalHandlers(): void {
 /**
  * Graceful shutdown
  */
-async function shutdown(): Promise<void> {
+async function shutdown(reason?: string): Promise<void> {
     if (isShuttingDown) return;
     isShuttingDown = true;
+    shutdownReason = reason;
 
     logger.info('daemon', 'Shutting down daemon...');
 
@@ -171,7 +203,7 @@ async function shutdown(): Promise<void> {
 
     // Disconnect from API
     try {
-        await apiService.disconnect();
+        await apiService.disconnect(shutdownReason);
         logger.info('daemon', 'Disconnected from API');
     } catch (error) {
         logger.error('daemon', 'Failed to disconnect from API', error as Error);

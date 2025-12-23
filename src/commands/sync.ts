@@ -1,4 +1,3 @@
-// Sync Command - Phase 2
 // Command: stint sync
 
 import { Command } from 'commander';

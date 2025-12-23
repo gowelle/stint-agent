@@ -47,6 +47,24 @@ export interface PendingCommit {
     createdAt: string;
 }
 
+export interface Suggestion {
+    id: string;
+    project_id: string; // Serialized from PHP model
+    user_id: string;
+    type: string;
+    title: string;
+    description: string;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    context: Record<string, any>;
+    priority: 'low' | 'medium' | 'high';
+    status: 'active' | 'dismissed' | 'actioned';
+    dismissed_at?: string;
+    actioned_at?: string;
+    expires_at?: string;
+    created_at: string;
+    updated_at: string;
+}
+
 // Git Types
 export interface RepoInfo {
     currentBranch: string;
@@ -100,6 +118,20 @@ export interface SyncRequestedEvent {
     };
 }
 
+export interface CommitPendingEvent {
+    event: 'commit.pending';
+    data: {
+        pendingCommit: PendingCommit;
+    };
+}
+
+export interface SuggestionCreatedEvent {
+    event: 'suggestion.created';
+    data: {
+        suggestion: Suggestion;
+    };
+}
+
 export interface CommitExecutedEvent {
     event: 'commit.executed';
     data: {
@@ -117,7 +149,11 @@ export interface CommitFailedEvent {
     };
 }
 
-export type WebSocketEvent = CommitApprovedEvent | SyncRequestedEvent;
+export type WebSocketEvent =
+    | CommitApprovedEvent
+    | SyncRequestedEvent
+    | CommitPendingEvent
+    | SuggestionCreatedEvent;
 export type OutgoingWebSocketEvent = CommitExecutedEvent | CommitFailedEvent;
 
 // Service Interfaces
@@ -164,6 +200,8 @@ export interface WebSocketService {
     isConnected(): boolean;
     subscribeToUserChannel(userId: string): void;
     onCommitApproved(handler: (commit: PendingCommit, project: Project) => void): void;
+    onCommitPending(handler: (commit: PendingCommit) => void): void;
+    onSuggestionCreated(handler: (suggestion: Suggestion) => void): void;
     onProjectUpdated(handler: (project: Project) => void): void;
     onDisconnect(handler: () => void): void;
 }

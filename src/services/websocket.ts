@@ -2,7 +2,7 @@ import WebSocket from 'ws';
 import { config } from '../utils/config.js';
 import { authService } from './auth.js';
 import { logger } from '../utils/logger.js';
-import { PendingCommit, Project } from '../types/index.js';
+import { PendingCommit, Project, Suggestion } from '../types/index.js';
 
 class WebSocketServiceImpl {
     private ws: WebSocket | null = null;
@@ -14,8 +14,12 @@ class WebSocketServiceImpl {
 
     // Event handlers
     private commitApprovedHandlers: Array<(commit: PendingCommit, project: Project) => void> = [];
+    private commitPendingHandlers: Array<(commit: PendingCommit) => void> = [];
+    private suggestionCreatedHandlers: Array<(suggestion: Suggestion) => void> = [];
     private projectUpdatedHandlers: Array<(project: Project) => void> = [];
     private disconnectHandlers: Array<() => void> = [];
+    private agentDisconnectedHandlers: Array<(reason?: string) => void> = [];
+    private syncRequestedHandlers: Array<(projectId: string) => void> = [];
 
     async connect(): Promise<void> {
         try {
@@ -116,12 +120,28 @@ class WebSocketServiceImpl {
         this.commitApprovedHandlers.push(handler);
     }
 
+    onCommitPending(handler: (commit: PendingCommit) => void): void {
+        this.commitPendingHandlers.push(handler);
+    }
+
+    onSuggestionCreated(handler: (suggestion: Suggestion) => void): void {
+        this.suggestionCreatedHandlers.push(handler);
+    }
+
     onProjectUpdated(handler: (project: Project) => void): void {
         this.projectUpdatedHandlers.push(handler);
     }
 
     onDisconnect(handler: () => void): void {
         this.disconnectHandlers.push(handler);
+    }
+
+    onAgentDisconnected(handler: (reason?: string) => void): void {
+        this.agentDisconnectedHandlers.push(handler);
+    }
+
+    onSyncRequested(handler: (projectId: string) => void): void {
+        this.syncRequestedHandlers.push(handler);
     }
 
     private sendMessage(message: Record<string, unknown>): void {
@@ -158,6 +178,20 @@ class WebSocketServiceImpl {
                 return;
             }
 
+            if (message.event === 'commit.pending') {
+                const { pendingCommit } = message.data;
+                logger.info('websocket', `Commit pending: ${pendingCommit.id}`);
+                this.commitPendingHandlers.forEach((handler) => handler(pendingCommit));
+                return;
+            }
+
+            if (message.event === 'suggestion.created') {
+                const { suggestion } = message.data;
+                logger.info('websocket', `Suggestion created: ${suggestion.id}`);
+                this.suggestionCreatedHandlers.forEach((handler) => handler(suggestion));
+                return;
+            }
+
             if (message.event === 'project.updated') {
                 const { project } = message.data;
                 logger.info('websocket', `Project updated: ${project.id}`);
@@ -168,7 +202,14 @@ class WebSocketServiceImpl {
             if (message.event === 'sync.requested') {
                 const { projectId } = message.data;
                 logger.info('websocket', `Sync requested for project: ${projectId}`);
-                // This will be handled in Phase 5
+                this.syncRequestedHandlers.forEach((handler) => handler(projectId));
+                return;
+            }
+
+            if (message.event === 'agent.disconnected') {
+                const reason = message.data?.reason || 'Server requested disconnect';
+                logger.warn('websocket', `Agent disconnected by server: ${reason}`);
+                this.agentDisconnectedHandlers.forEach((handler) => handler(reason));
                 return;
             }
 

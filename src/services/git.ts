@@ -1,5 +1,4 @@
-// Git Service - Phase 2
-// This service will handle all git operations using simple-git
+// This service handles all git operations using simple-git
 
 import simpleGit, { SimpleGit, StatusResult } from 'simple-git';
 import { RepoInfo, GitStatus, Branch } from '../types/index.js';

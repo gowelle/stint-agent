@@ -1,4 +1,3 @@
-// Link Command - Phase 2
 // Command: stint link
 
 import { Command } from 'commander';
@@ -96,7 +95,7 @@ export function registerLinkCommand(program: Command): void {
                             try {
                                 repoInfo = await gitService.getRepoInfo(cwd);
                             } catch (e) {
-                                logger.warn('link', 'Failed to get repo info for creation metadata', e as Error);
+                                logger.warn('link', `Failed to get repo info for creation metadata: ${(e as Error).message}`);
                             }
                         }
 

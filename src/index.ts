@@ -13,6 +13,7 @@ import { registerSyncCommand } from './commands/sync.js';
 import { registerDaemonCommands } from './commands/daemon.js';
 import { registerCommitCommands } from './commands/commit.js';
 import { registerInstallCommand, registerUninstallCommand } from './commands/install.js';
+import { registerUpdateCommand } from './commands/update.js';
 import { logger } from './utils/logger.js';
 
 // Version is injected at build time via tsup define
@@ -23,7 +24,7 @@ const program = new Command();
 program
     .name('stint')
     .description('Stint Agent - Local daemon for Stint Project Assistant')
-    .version(AGENT_VERSION, '-V, --version', 'output the current version')
+    .version(AGENT_VERSION, '-v, -V, --version', 'output the current version')
     .addHelpText('after', `
 ${chalk.bold('Examples:')}
   ${chalk.cyan('$')} stint login                 ${chalk.gray('# Authenticate with Stint')}
@@ -49,6 +50,7 @@ registerDaemonCommands(program);
 registerCommitCommands(program);
 registerInstallCommand(program);
 registerUninstallCommand(program);
+registerUpdateCommand(program);
 
 
 
@@ -59,7 +61,7 @@ try {
     await program.parseAsync(process.argv);
 } catch (error) {
     const commanderError = error as Error & { code?: string };
-    if (commanderError.code !== 'commander.help' && commanderError.code !== 'commander.version') {
+    if (commanderError.code !== 'commander.help' && commanderError.code !== 'commander.version' && commanderError.code !== 'commander.helpDisplayed') {
         logger.error('cli', 'Command execution failed', error as Error);
         console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
         process.exit(1);

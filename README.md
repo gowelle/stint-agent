@@ -53,6 +53,7 @@ stint daemon status
 |---------|-------------|
 | `stint --version`, `stint -V` | Show current agent version |
 | `stint --help`, `stint -h` | Show help information |
+| `stint update` | Update agent to the latest version |
 
 ### Authentication
 

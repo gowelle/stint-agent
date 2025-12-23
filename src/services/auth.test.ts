@@ -26,7 +26,7 @@ vi.mock('../utils/logger.js', () => ({
     },
 }));
 
-describe('AuthService', () => {
+describe('AuthService Core', () => {
     let authService: typeof import('./auth.js').authService;
     let config: typeof import('../utils/config.js').config;
     let crypto: typeof import('../utils/crypto.js');
@@ -35,7 +35,6 @@ describe('AuthService', () => {
         vi.resetModules();
         vi.clearAllMocks();
 
-        // Re-import modules
         const configModule = await import('../utils/config.js');
         const cryptoModule = await import('../utils/crypto.js');
         const authModule = await import('./auth.js');
@@ -101,72 +100,6 @@ describe('AuthService', () => {
             await authService.clearToken();
 
             expect(config.clearToken).toHaveBeenCalled();
-        });
-    });
-
-    describe('validateToken', () => {
-        it('should return null if no token', async () => {
-            (config.getToken as Mock).mockReturnValue(undefined);
-
-            const user = await authService.validateToken();
-
-            expect(user).toBeNull();
-        });
-
-        it('should validate token with API and return user', async () => {
-            (config.getToken as Mock).mockReturnValue('encrypted:valid-token');
-
-            // Mock the dynamic import of apiService
-            vi.doMock('./api.js', () => ({
-                apiService: {
-                    getCurrentUser: vi.fn().mockResolvedValue({
-                        id: 'user-1',
-                        name: 'Test User',
-                        email: 'test@example.com',
-                    }),
-                },
-            }));
-
-            // Re-import auth module to pick up the mock
-            vi.resetModules();
-            const authModule = await import('./auth.js');
-            const newAuthService = authModule.authService;
-
-            // Set up config mock again
-            const configModule = await import('../utils/config.js');
-            (configModule.config.getToken as Mock).mockReturnValue('encrypted:valid-token');
-
-            const user = await newAuthService.validateToken();
-
-            expect(user).toEqual({
-                id: 'user-1',
-                name: 'Test User',
-                email: 'test@example.com',
-            });
-        });
-
-        it('should return null if API validation fails', async () => {
-            (config.getToken as Mock).mockReturnValue('encrypted:invalid-token');
-
-            // Mock the dynamic import of apiService to throw
-            vi.doMock('./api.js', () => ({
-                apiService: {
-                    getCurrentUser: vi.fn().mockRejectedValue(new Error('Invalid token')),
-                },
-            }));
-
-            // Re-import auth module
-            vi.resetModules();
-            const authModule = await import('./auth.js');
-            const newAuthService = authModule.authService;
-
-            // Set up config mock again
-            const configModule = await import('../utils/config.js');
-            (configModule.config.getToken as Mock).mockReturnValue('encrypted:invalid-token');
-
-            const user = await newAuthService.validateToken();
-
-            expect(user).toBeNull();
         });
     });
 

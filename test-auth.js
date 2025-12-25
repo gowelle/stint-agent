@@ -11,7 +11,7 @@ const configRaw = fs.readFileSync(CONFIG_PATH, 'utf8');
 const config = JSON.parse(configRaw);
 
 // Mock socket ID
-const SOCKET_ID = '146962653.544300471';
+const SOCKET_ID = '452476800.131148187';
 // Using the user ID from the config to construct the channel name
 // Assuming user object is stored or we need to extract from token?
 // Actually, earlier logs showed channel: private-user.01kcdd2j9fx3v6d1mk53vpkq8c

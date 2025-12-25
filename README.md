@@ -92,10 +92,18 @@ stint daemon status
 
 ### Commit Operations
 
-| Command             | Description                              |
-| ------------------- | ---------------------------------------- |
-| `stint commits`     | List pending commits for this repository |
-| `stint commit <id>` | Execute a specific pending commit        |
+| Command                    | Description                                            |
+| -------------------------- | ------------------------------------------------------ |
+| `stint commits`            | List pending commits for this repository               |
+| `stint commit <id>`        | Execute a specific pending commit (supports partial ID)|
+
+**`stint commit` Options:**
+
+| Option         | Description                                         |
+| -------------- | --------------------------------------------------- |
+| `--auto-stage` | Automatically stage files specified in the commit   |
+| `--push`       | Push changes to remote after committing             |
+| `--force`      | Skip file validation warnings                       |
 
 ## Complete Workflow
 

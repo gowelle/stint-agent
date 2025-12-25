@@ -160,16 +160,16 @@ describe('WebSocketService', () => {
             const handler = vi.fn();
             wsModule.websocketService.onCommitApproved(handler);
 
+            // Laravel sends { pendingCommit } with project relationship loaded
             const payload = {
                 event: 'commit.approved',
                 data: {
-                    commit: { id: '123' },
-                    project: { id: 'prj_1' }
+                    pendingCommit: { id: '123', project: { id: 'prj_1' } }
                 }
             };
             simulateMessage(payload);
 
-            expect(handler).toHaveBeenCalledWith(payload.data.commit, payload.data.project);
+            expect(handler).toHaveBeenCalledWith(payload.data.pendingCommit, payload.data.pendingCommit.project);
         });
 
         it('should handle commit.pending event', () => {
@@ -221,10 +221,11 @@ describe('WebSocketService', () => {
             const handler = vi.fn();
             wsModule.websocketService.onSyncRequested(handler);
 
+            // Laravel sends { project } - handler extracts project.id
             const payload = {
                 event: 'sync.requested',
                 data: {
-                    projectId: 'prj_sync'
+                    project: { id: 'prj_sync' }
                 }
             };
             simulateMessage(payload);

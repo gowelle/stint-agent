@@ -44,7 +44,10 @@ stint status             # Show linked project and connection status
 # Manual operations
 stint sync               # Manually sync repo info to server
 stint commits            # List pending commits for this repo
-stint commit <id>        # Execute a specific pending commit
+stint commit <id>        # Execute a specific pending commit (supports partial ID)
+  --auto-stage           # Automatically stage files specified in commit
+  --push                 # Push changes to remote after committing
+  --force                # Skip file validation warnings
 ```
 
 ## Architecture

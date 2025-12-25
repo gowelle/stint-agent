@@ -26,7 +26,34 @@ Remote:      https://github.com/user/repo.git
 - Shows staged files being committed
 - Reports commit execution stages
 - Displays final commit details
+- Supports partial commit IDs for convenience
 - Example: `stint commit <id>`
+
+**Options:**
+
+| Option         | Description                                         |
+| -------------- | --------------------------------------------------- |
+| `--auto-stage` | Automatically stage files specified in the commit   |
+| `--push`       | Push changes to remote after committing             |
+| `--force`      | Skip file validation warnings                       |
+
+**Usage Examples:**
+
+```bash
+# Execute a commit with full ID
+stint commit abc123def456
+
+# Execute with partial ID (first 7 characters)
+stint commit abc123d
+
+# Auto-stage expected files and push after commit
+stint commit abc123d --auto-stage --push
+
+# Skip file mismatch warnings
+stint commit abc123d --force
+```
+
+**Output:**
 
 ```
 ✓ Commit executed
@@ -35,6 +62,7 @@ Commit ID:  abc123def456
 Message:    Update API endpoints
 SHA:        def7890
 Files:      3 files committed
+Pushed:     Yes
 
 Committed files:
   + src/services/api.ts

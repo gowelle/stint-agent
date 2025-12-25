@@ -85,14 +85,14 @@ export function registerUpdateCommand(program: Command): void {
         .command('update')
         .description('Update stint agent to the latest version')
         .option('-c, --channel <channel>', 'Release channel (stable, beta, nightly)')
-        .action(async (command) => {
+        .action(async (options: { channel?: string }) => {
             const spinner = ora('Checking for updates...').start();
 
             try {
                 // 1. Get current version and channel config
                 const currentVersion = program.version();
                 const config = getChannelConfig();
-                const channel = (command.opts().channel || config.defaultChannel).toLowerCase();
+                const channel = (options.channel || config.defaultChannel).toLowerCase();
 
                 if (!config.channels[channel]) {
                     spinner.fail(`Invalid channel: ${channel}`);

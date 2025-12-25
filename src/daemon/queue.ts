@@ -53,7 +53,7 @@ class CommitQueueProcessor {
     /**
      * Execute a single commit
      */
-    async executeCommit(commit: PendingCommit, project: Project, onProgress?: (stage: string) => void): Promise<string> {
+    async executeCommit(commit: PendingCommit, project: Project, onProgress?: (stage: string) => void, options?: { push?: boolean }): Promise<string> {
         logger.info('queue', `Processing commit: ${commit.id} - ${commit.message}`);
 
         try {
@@ -72,20 +72,29 @@ class CommitQueueProcessor {
             }
 
             onProgress?.('Checking repository status...');
-            const status = await gitService.getStatus(projectPath);
+            let status = await gitService.getStatus(projectPath);
 
-            // Allow committing if there ARE staged changes.
-            // Current workflow requires user to stage files manually.
-            const hasStagedChanges = status.staged.length > 0;
-
-            if (!hasStagedChanges) {
-                // If nothing is staged, we can't commit.
-                // Note: The previous logic blocked ANY dirty state. The new logic blocks only if NOTHING is staged.
-                throw new Error('No staged changes to commit. Please stage files using "git add" before committing.');
+            // Auto-stage files if specified in commit, otherwise stage all changes
+            if (commit.files && commit.files.length > 0) {
+                onProgress?.(`Staging ${commit.files.length} specified files...`);
+                await gitService.stageFiles(projectPath, commit.files);
+                status = await gitService.getStatus(projectPath);
+                logger.info('queue', `Auto-staged files: ${commit.files.join(', ')}`);
+            } else if (status.staged.length === 0) {
+                // No specific files specified and nothing staged - check for unstaged/untracked changes
+                const hasChanges = status.unstaged.length > 0 || status.untracked.length > 0;
+                if (hasChanges) {
+                    onProgress?.('Staging all changes...');
+                    await gitService.stageAll(projectPath);
+                    status = await gitService.getStatus(projectPath);
+                    logger.info('queue', `Auto-staged all changes`);
+                }
             }
 
-            // Note: We deliberately SKIP auto-staging here.
-            // The user is expected to have prepared the index.
+            if (status.staged.length === 0) {
+                throw new Error('No changes to commit. The working directory is clean.');
+            }
+
             logger.info('queue', `Committing ${status.staged.length} staged files.`);
 
             onProgress?.('Creating commit...');
@@ -93,6 +102,13 @@ class CommitQueueProcessor {
             const sha = await gitService.commit(projectPath, commit.message);
 
             logger.success('queue', `Commit created successfully: ${sha}`);
+
+            // Push to remote if requested
+            if (options?.push) {
+                onProgress?.('Pushing to remote...');
+                await gitService.push(projectPath);
+                logger.success('queue', `Pushed commit ${sha} to remote`);
+            }
 
             onProgress?.('Reporting to server...');
             await this.reportSuccess(commit.id, sha);

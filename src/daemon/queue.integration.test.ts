@@ -8,6 +8,9 @@ const { mockGitService, mockApiService, mockProjectService } = vi.hoisted(() => 
             isRepo: vi.fn(),
             getStatus: vi.fn(),
             commit: vi.fn(),
+            stageFiles: vi.fn(),
+            stageAll: vi.fn(),
+            push: vi.fn(),
         },
         mockApiService: {
             markCommitExecuted: vi.fn(),
@@ -83,13 +86,23 @@ describe('CommitQueue Integration Tests', () => {
         it('should execute commit successfully with staged changes', async () => {
             // Arrange
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: ['file1.ts', 'file2.ts'],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            // First call before staging, second call after staging
+            mockGitService.getStatus
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                })
+                .mockResolvedValueOnce({
+                    staged: ['file1.ts', 'file2.ts'],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                });
             mockGitService.commit.mockResolvedValue('abc123def456');
             mockApiService.markCommitExecuted.mockResolvedValue(undefined);
 
@@ -99,7 +112,7 @@ describe('CommitQueue Integration Tests', () => {
             // Assert
             expect(sha).toBe('abc123def456');
             expect(mockGitService.isRepo).toHaveBeenCalledWith(testProjectPath);
-            expect(mockGitService.getStatus).toHaveBeenCalledWith(testProjectPath);
+            expect(mockGitService.stageFiles).toHaveBeenCalledWith(testProjectPath, testCommit.files);
             expect(mockGitService.commit).toHaveBeenCalledWith(testProjectPath, testCommit.message);
             expect(mockApiService.markCommitExecuted).toHaveBeenCalledWith(testCommit.id, 'abc123def456');
         });
@@ -107,13 +120,22 @@ describe('CommitQueue Integration Tests', () => {
         it('should report success to API after commit', async () => {
             // Arrange
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: ['file1.ts'],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            mockGitService.getStatus
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                })
+                .mockResolvedValueOnce({
+                    staged: ['file1.ts', 'file2.ts'],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                });
             mockGitService.commit.mockResolvedValue('sha789');
             mockApiService.markCommitExecuted.mockResolvedValue(undefined);
 
@@ -127,27 +149,37 @@ describe('CommitQueue Integration Tests', () => {
     });
 
     describe('Error Scenarios', () => {
-        it('should throw error when no staged changes', async () => {
-            // Arrange
+        it('should throw error when working directory is clean', async () => {
+            // Arrange - no staged, unstaged, or untracked changes
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: [],
-                unstaged: ['file1.ts'],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            // First call returns empty (before staging), second call also empty (after staging)
+            mockGitService.getStatus
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                })
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                });
             mockApiService.markCommitFailed.mockResolvedValue(undefined);
 
             // Act & Assert
             await expect(commitQueue.executeCommit(testCommit, testProject)).rejects.toThrow(
-                'No staged changes to commit'
+                'No changes to commit'
             );
 
             expect(mockGitService.commit).not.toHaveBeenCalled();
             expect(mockApiService.markCommitFailed).toHaveBeenCalledWith(
                 testCommit.id,
-                expect.stringContaining('No staged changes')
+                expect.stringContaining('No changes to commit')
             );
         });
 
@@ -188,13 +220,22 @@ describe('CommitQueue Integration Tests', () => {
         it('should handle git commit failure', async () => {
             // Arrange
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: ['file1.ts'],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            mockGitService.getStatus
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                })
+                .mockResolvedValueOnce({
+                    staged: ['file1.ts', 'file2.ts'],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                });
             mockGitService.commit.mockRejectedValue(new Error('Git commit failed'));
             mockApiService.markCommitFailed.mockResolvedValue(undefined);
 
@@ -214,13 +255,22 @@ describe('CommitQueue Integration Tests', () => {
         it('should not throw when API success reporting fails', async () => {
             // Arrange
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: ['file1.ts'],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            mockGitService.getStatus
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                })
+                .mockResolvedValueOnce({
+                    staged: ['file1.ts', 'file2.ts'],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                });
             mockGitService.commit.mockResolvedValue('sha123');
             mockApiService.markCommitExecuted.mockRejectedValue(new Error('API error'));
 
@@ -233,20 +283,29 @@ describe('CommitQueue Integration Tests', () => {
         });
 
         it('should not throw when API failure reporting fails', async () => {
-            // Arrange
+            // Arrange - clean working directory
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: [],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            mockGitService.getStatus
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                })
+                .mockResolvedValueOnce({
+                    staged: [],
+                    unstaged: [],
+                    untracked: [],
+                    ahead: 0,
+                    behind: 0,
+                });
             mockApiService.markCommitFailed.mockRejectedValue(new Error('API error'));
 
             // Act & Assert - should throw original error, not API error
             await expect(commitQueue.executeCommit(testCommit, testProject)).rejects.toThrow(
-                'No staged changes'
+                'No changes to commit'
             );
         });
     });
@@ -261,13 +320,15 @@ describe('CommitQueue Integration Tests', () => {
             const executionOrder: string[] = [];
 
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: ['file.ts'],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            // Return staged files after staging
+            mockGitService.getStatus
+                .mockResolvedValueOnce({ staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: ['file1.ts', 'file2.ts'], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: ['file1.ts', 'file2.ts'], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: ['file1.ts', 'file2.ts'], unstaged: [], untracked: [], ahead: 0, behind: 0 });
 
             mockGitService.commit.mockImplementation(async (_path: string, message: string) => {
                 executionOrder.push(message);
@@ -284,7 +345,7 @@ describe('CommitQueue Integration Tests', () => {
             commitQueue.addToQueue(commit3, testProject);
 
             // Wait for queue to process
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             // Assert
             expect(executionOrder).toEqual(['First commit', 'Second commit', 'Third commit']);
@@ -301,13 +362,15 @@ describe('CommitQueue Integration Tests', () => {
             const executionAttempts: string[] = [];
 
             mockGitService.isRepo.mockResolvedValue(true);
-            mockGitService.getStatus.mockResolvedValue({
-                staged: ['file.ts'],
-                unstaged: [],
-                untracked: [],
-                ahead: 0,
-                behind: 0,
-            });
+            mockGitService.stageFiles.mockResolvedValue(undefined);
+            // Return staged files after staging for each commit
+            mockGitService.getStatus
+                .mockResolvedValueOnce({ staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: ['file1.ts', 'file2.ts'], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: ['file1.ts', 'file2.ts'], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: [], unstaged: [], untracked: [], ahead: 0, behind: 0 })
+                .mockResolvedValueOnce({ staged: ['file1.ts', 'file2.ts'], unstaged: [], untracked: [], ahead: 0, behind: 0 });
 
             mockGitService.commit.mockImplementation(async (_path: string, message: string) => {
                 executionAttempts.push(message);
@@ -326,7 +389,7 @@ describe('CommitQueue Integration Tests', () => {
             commitQueue.addToQueue(commit3, testProject);
 
             // Wait for queue to process
-            await new Promise(resolve => setTimeout(resolve, 100));
+            await new Promise(resolve => setTimeout(resolve, 200));
 
             // Assert
             expect(executionAttempts).toEqual(['Success commit', 'Fail commit', 'Another success']);

@@ -194,6 +194,7 @@ export interface GitService {
     getCurrentBranch(path: string): Promise<string>;
     getBranches(path: string): Promise<Branch[]>;
     getStatus(path: string): Promise<GitStatus>;
+    push(path: string, remote?: string, branch?: string): Promise<void>;
 }
 
 export interface WebSocketService {

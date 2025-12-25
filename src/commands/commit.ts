@@ -70,46 +70,115 @@ export function registerCommitCommands(program: Command): void {
     program
         .command('commit <id>')
         .description('Execute a specific pending commit')
-        .action(async (id: string) => {
-            const spinner = ora('Checking repository status...').start();
+        .option('--auto-stage', 'Automatically stage files specified in the pending commit')
+        .option('--push', 'Push changes to remote after committing')
+        .option('--force', 'Skip file validation warnings')
+        .action(async (id: string, options: { autoStage?: boolean; push?: boolean; force?: boolean }) => {
+            let activeSpinner: ReturnType<typeof ora> | null = null;
 
             try {
+                activeSpinner = ora('Checking repository status...').start();
                 const cwd = process.cwd();
 
                 // Check if directory is linked
                 const linkedProject = await projectService.getLinkedProject(cwd);
                 if (!linkedProject) {
-                    spinner.fail('Not linked');
+                    activeSpinner.fail('Not linked');
                     console.log(chalk.yellow('\n⚠ This directory is not linked to any project.'));
                     console.log(chalk.gray('Run "stint link" first to link this directory.\n'));
                     process.exit(1);
                 }
 
-                // Check for staged changes
-                const status = await gitService.getStatus(cwd);
-                if (status.staged.length === 0) {
-                    spinner.fail('No staged changes');
-                    console.log(chalk.yellow('\n⚠ No staged changes detected.'));
-                    console.log(chalk.gray('Please stage the files you want to commit first.'));
-                    console.log(chalk.gray('  git add <files>\n'));
-                    process.exit(1);
-                }
-
                 // Fetch pending commits to find the one we want
-                spinner.text = 'Fetching commit details...';
+                activeSpinner.text = 'Fetching commit details...';
                 const commits = await apiService.getPendingCommits(linkedProject.projectId);
 
-                // Find commit by ID (support partial ID)
-                const commit = commits.find((c) => c.id.startsWith(id));
+                // Find commits by ID (support partial ID) with collision detection
+                const matchingCommits = commits.filter((c) => c.id.startsWith(id));
 
-                if (!commit) {
-                    spinner.fail('Commit not found');
+                if (matchingCommits.length === 0) {
+                    activeSpinner.fail('Commit not found');
                     console.log(chalk.red(`\n✖ Commit ${id} not found in pending commits.\n`));
                     console.log(chalk.gray('Run "stint commits" to see available commits.\n'));
                     process.exit(1);
                 }
 
-                spinner.stop();
+                if (matchingCommits.length > 1) {
+                    activeSpinner.fail('Ambiguous commit ID');
+                    console.log(chalk.yellow(`\n⚠ Multiple commits match "${id}":\n`));
+                    matchingCommits.forEach(c => {
+                        const shortId = c.id.substring(0, 12);
+                        console.log(`  ${chalk.cyan(shortId)}  ${c.message}`);
+                    });
+                    console.log(chalk.gray('\nPlease use a longer ID to be more specific.\n'));
+                    process.exit(1);
+                }
+
+                const commit = matchingCommits[0];
+
+                // Get current status
+                let status = await gitService.getStatus(cwd);
+
+                // Handle auto-staging if requested
+                if (options.autoStage && commit.files && commit.files.length > 0) {
+                    activeSpinner.text = `Staging ${commit.files.length} files...`;
+                    await gitService.stageFiles(cwd, commit.files);
+                    status = await gitService.getStatus(cwd);
+                    logger.info('commit', `Auto-staged files: ${commit.files.join(', ')}`);
+                }
+
+                // Check for staged changes (after potential auto-staging)
+                if (status.staged.length === 0) {
+                    activeSpinner.fail('No staged changes');
+                    console.log(chalk.yellow('\n⚠ No staged changes detected.'));
+                    if (commit.files && commit.files.length > 0) {
+                        console.log(chalk.gray('Expected files: ' + commit.files.join(', ')));
+                        console.log(chalk.gray('\nUse --auto-stage to automatically stage expected files.'));
+                    } else {
+                        console.log(chalk.gray('Please stage the files you want to commit first.'));
+                        console.log(chalk.gray('  git add <files>\n'));
+                    }
+                    process.exit(1);
+                }
+
+                // Validate staged files match expected files (if specified and not forced)
+                if (commit.files && commit.files.length > 0 && !options.force && !options.autoStage) {
+                    const stagedSet = new Set(status.staged);
+                    const expectedSet = new Set(commit.files);
+
+                    const missing = commit.files.filter(f => !stagedSet.has(f));
+                    const extra = status.staged.filter(f => !expectedSet.has(f));
+
+                    if (missing.length > 0 || extra.length > 0) {
+                        activeSpinner.stop();
+                        console.log(chalk.yellow('\n⚠ Staged files do not match expected files:\n'));
+
+                        if (missing.length > 0) {
+                            console.log(chalk.red('  Missing (expected but not staged):'));
+                            missing.forEach(f => console.log(chalk.red(`    - ${f}`)));
+                        }
+
+                        if (extra.length > 0) {
+                            console.log(chalk.yellow('\n  Extra (staged but not expected):'));
+                            extra.forEach(f => console.log(chalk.yellow(`    + ${f}`)));
+                        }
+
+                        console.log();
+                        const proceed = await confirm({
+                            message: 'Do you want to proceed anyway?',
+                            default: false,
+                        });
+
+                        if (!proceed) {
+                            console.log(chalk.gray('\nCommit cancelled. Use --auto-stage to stage expected files.\n'));
+                            return;
+                        }
+
+                        activeSpinner = ora('Continuing...').start();
+                    }
+                }
+
+                activeSpinner.stop();
 
                 // Show staged files and confirm
                 console.log(chalk.blue('\n📋 Staged changes to commit:'));
@@ -119,6 +188,9 @@ export function registerCommitCommands(program: Command): void {
                 });
                 console.log();
                 console.log(`${chalk.bold('Message:')}    ${commit.message}`);
+                if (options.push) {
+                    console.log(`${chalk.bold('Push:')}       ${chalk.cyan('Yes (will push after commit)')}`);
+                }
                 console.log();
 
                 const confirmed = await confirm({
@@ -131,21 +203,21 @@ export function registerCommitCommands(program: Command): void {
                     return;
                 }
 
-                const execSpinner = ora('Preparing commit...').start();
+                activeSpinner = ora('Preparing commit...').start();
 
-                // We need to create a minimal project object for execution
+                // Create project object for execution
                 const project = {
                     id: linkedProject.projectId,
-                    name: 'Current Project', // We don't have the name, but it's not critical
+                    name: 'Current Project',
                     createdAt: '',
                     updatedAt: '',
                 };
 
                 const sha = await commitQueue.executeCommit(commit, project, (stage) => {
-                    execSpinner.text = stage;
-                });
+                    if (activeSpinner) activeSpinner.text = stage;
+                }, { push: options.push });
 
-                execSpinner.succeed('Commit executed successfully!');
+                activeSpinner.succeed('Commit executed successfully!');
 
                 console.log(chalk.green('\n✓ Commit executed'));
                 console.log(chalk.gray('─'.repeat(50)));
@@ -153,24 +225,23 @@ export function registerCommitCommands(program: Command): void {
                 console.log(`${chalk.bold('Message:')}    ${commit.message}`);
                 console.log(`${chalk.bold('SHA:')}        ${sha}`);
                 console.log(`${chalk.bold('Files:')}      ${status.staged.length} files committed`);
+                if (options.push) {
+                    console.log(`${chalk.bold('Pushed:')}     ${chalk.green('Yes')}`);
+                }
                 console.log();
-                
+
                 // Show committed files
                 if (status.staged.length > 0) {
                     console.log(chalk.gray('Committed files:'));
                     status.staged.forEach(file => {
                         console.log(chalk.green(`  + ${file}`));
                     });
-                    console.log();                    
+                    console.log();
                 }
 
                 logger.success('commit', `Executed commit ${commit.id} -> ${sha}`);
             } catch (error) {
-                // If spinner is still spinning, stop it
-                if (ora().isSpinning) {
-                    ora().fail('Commit execution failed');
-                }
-
+                activeSpinner?.fail('Commit execution failed');
                 logger.error('commit', 'Failed to execute commit', error as Error);
                 console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
                 process.exit(1);

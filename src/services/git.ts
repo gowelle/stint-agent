@@ -171,6 +171,27 @@ class GitServiceImpl {
         }
     }
 
+    /**
+     * Push commits to remote repository
+     * @param path - Repository path
+     * @param remote - Remote name (default: 'origin')
+     * @param branch - Branch name (optional, uses current branch if not specified)
+     */
+    async push(path: string, remote = 'origin', branch?: string): Promise<void> {
+        try {
+            const git = this.getGit(path);
+            if (branch) {
+                await git.push(remote, branch);
+            } else {
+                await git.push(remote);
+            }
+            logger.success('git', `Pushed to ${remote} in ${path}`);
+        } catch (error) {
+            logger.error('git', `Failed to push in ${path}`, error as Error);
+            throw new Error(`Failed to push: ${(error as Error).message}`);
+        }
+    }
+
     async getRepoRoot(path: string): Promise<string | null> {
         try {
             const git = this.getGit(path);

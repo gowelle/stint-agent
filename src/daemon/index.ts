@@ -90,6 +90,16 @@ export async function startDaemon(): Promise<void> {
             });
         });
 
+        // Also register polling handler for project updates
+        pollingService.onProjectUpdated((project) => {
+            logger.info('daemon', `Project updated (via polling): ${project.id} - ${project.name}`);
+
+            notify({
+                title: 'Project Updated',
+                message: project.name,
+            });
+        });
+
         websocketService.onDisconnect(() => {
             logger.warn('daemon', 'WebSocket disconnected, will attempt to reconnect');
         });

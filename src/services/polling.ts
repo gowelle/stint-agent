@@ -6,7 +6,9 @@ import { logger } from '../utils/logger.js';
 class PollingServiceImpl {
     private interval: NodeJS.Timeout | null = null;
     private knownCommitIds: Set<string> = new Set();
+    private knownProjects: Map<string, Project> = new Map();
     private commitApprovedHandlers: ((commit: PendingCommit, project: Project) => void)[] = [];
+    private projectUpdatedHandlers: ((project: Project) => void)[] = [];
     private isFirstRun = true;
     private isPolling = false;
 
@@ -49,6 +51,14 @@ class PollingServiceImpl {
     }
 
     /**
+     * Register handler for project updated event
+     * @param handler - Function to call when a project is updated
+     */
+    onProjectUpdated(handler: (project: Project) => void): void {
+        this.projectUpdatedHandlers.push(handler);
+    }
+
+    /**
      * Poll for updates
      */
     private async poll(): Promise<void> {
@@ -86,6 +96,18 @@ class PollingServiceImpl {
             const projects = apiProjects.filter(p => projectIds.includes(p.id));
 
             for (const project of projects) {
+                // Check for project updates
+                const cachedProject = this.knownProjects.get(project.id);
+                if (cachedProject) {
+                    if (cachedProject.updatedAt !== project.updatedAt) {
+                        if (!this.isFirstRun) {
+                            logger.info('polling', `Project update detected: ${project.id}`);
+                            this.notifyProjectUpdated(project);
+                        }
+                    }
+                }
+                this.knownProjects.set(project.id, project);
+
                 try {
                     const commits = await apiService.getPendingCommits(project.id);
 
@@ -96,7 +118,7 @@ class PollingServiceImpl {
                             // Only notify if this is not the first run (initial population)
                             if (!this.isFirstRun) {
                                 logger.info('polling', `New pending commit detected: ${commit.id}`);
-                                this.notifyHandlers(commit, project);
+                                this.notifyCommitApproved(commit, project);
                             }
                         }
                     }
@@ -115,12 +137,22 @@ class PollingServiceImpl {
         }
     }
 
-    private notifyHandlers(commit: PendingCommit, project: Project): void {
+    private notifyCommitApproved(commit: PendingCommit, project: Project): void {
         this.commitApprovedHandlers.forEach(handler => {
             try {
                 handler(commit, project);
             } catch (error) {
                 logger.error('polling', 'Error in commit approved handler', error as Error);
+            }
+        });
+    }
+
+    private notifyProjectUpdated(project: Project): void {
+        this.projectUpdatedHandlers.forEach(handler => {
+            try {
+                handler(project);
+            } catch (error) {
+                logger.error('polling', 'Error in project updated handler', error as Error);
             }
         });
     }

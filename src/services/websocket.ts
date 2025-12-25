@@ -177,7 +177,7 @@ class WebSocketServiceImpl {
         try {
             const message = JSON.parse(data.toString());
 
-            logger.debug('websocket', `Received message: ${message.event}`);
+            logger.info('websocket', `Received message: ${message.event}`);
 
             // Handle Pusher protocol messages
             if (message.event === 'pusher:connection_established') {
@@ -233,7 +233,7 @@ class WebSocketServiceImpl {
                 return;
             }
 
-            logger.debug('websocket', `Unhandled event: ${message.event}`);
+            logger.info('websocket', `Unhandled event: ${message.event}, payload: ${JSON.stringify(message)}`);
         } catch (error) {
             logger.error('websocket', 'Failed to parse message', error as Error);
         }

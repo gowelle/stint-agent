@@ -216,6 +216,11 @@ class WebSocketServiceImpl {
                     const connectionData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
                     this.socketId = connectionData.socket_id;
                     logger.success('websocket', `Connection established (socket_id: ${this.socketId})`);
+
+                    // If we have a pending user ID to subscribe to, do it now
+                    if (this.userId) {
+                        this.subscribeToUserChannel(this.userId);
+                    }
                 } catch (error) {
                     logger.success('websocket', 'Connection established');
                 }

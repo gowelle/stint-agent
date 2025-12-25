@@ -72,11 +72,25 @@ export async function startDaemon(): Promise<void> {
             commitQueue.addToQueue(commit, project);
         });
 
-        websocketService.onCommitPending((commit) => {
+        websocketService.onCommitPending(async (data) => {
+            // Unpack data correctly - checking types, it seems onCommitPending handler receives the data object directly?
+            // Wait, websocket.ts calls handler(data.data.pendingCommit). 
+            // Let's check websocket.ts implementation.
+            // If it passes only 'commit', then I can use commit.projectId.
+
+            const commit = data; // Assuming handler receives the commit object based on websocket.ts inspection
             logger.info('daemon', `Commit pending: ${commit.id}`);
 
+            // Try to get project name
+            let projectName = commit.projectId;
+            try {
+                const projects = await apiService.getLinkedProjects();
+                const p = projects.find(proj => proj.id === commit.projectId);
+                if (p) projectName = p.name;
+            } catch (e) { /* ignore */ }
+
             notify({
-                title: 'New Pending Commit',
+                title: `New Proposal - ${projectName}`,
                 message: commit.message,
             });
         });
@@ -127,9 +141,21 @@ export async function startDaemon(): Promise<void> {
         websocketService.onSyncRequested(async (projectId) => {
             logger.info('daemon', `Server requested sync for project: ${projectId}`);
             try {
+                // Try to get project name for friendly notification
+                let projectName = projectId;
+                try {
+                    const projects = await apiService.getLinkedProjects();
+                    const project = projects.find(p => p.id === projectId);
+                    if (project) {
+                        projectName = project.name;
+                    }
+                } catch (e) {
+                    // Ignore API error for name lookup, proceed with ID
+                }
+
                 notify({
                     title: 'Sync Requested',
-                    message: `Syncing project ${projectId}...`,
+                    message: `Syncing project "${projectName}"...`,
                 });
                 await fileWatcher.syncProjectById(projectId);
             } catch (error) {

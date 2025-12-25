@@ -204,9 +204,17 @@ export class FileWatcher {
 
             logger.success('watcher', `Synced project ${projectId}`);
 
+            // Try to resolve project name
+            let projectName = projectId;
+            try {
+                const projects = await apiService.getLinkedProjects();
+                const p = projects.find(proj => proj.id === projectId);
+                if (p) projectName = p.name;
+            } catch (e) { /* ignore */ }
+
             notify({
                 title: 'Sync Complete',
-                message: `Project ${projectId} synced successfully.`,
+                message: `Project "${projectName}" synced successfully.`,
             });
         } catch (error) {
             logger.error('watcher', `Failed to sync project ${projectId}`, error as Error);

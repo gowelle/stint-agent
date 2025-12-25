@@ -118,7 +118,7 @@ class CommitQueueProcessor {
                     pushed = true;
                     logger.success('queue', `Pushed commit ${sha} to remote`);
                     notify({
-                        title: 'Commit Executed & Pushed',
+                        title: `Commit Pushed - ${project.name}`,
                         message: `Commit "${commit.message}" successfully pushed.`,
                     });
                 } catch (error) {
@@ -131,13 +131,13 @@ class CommitQueueProcessor {
                     if (isConflict) {
                         logger.warn('queue', `Push failed due to remote conflict: ${pushError}`);
                         notify({
-                            title: '⚠️ Push Failed - Manual Action Required',
-                            message: `Commit "${commit.message}" created but push failed.\nRun "git pull --rebase && git push" to resolve.`,
+                            title: `Push Conflict - ${project.name}`,
+                            message: `Commit "${commit.message}" created but push failed.\nRun "git pull --rebase" to resolve.`,
                         });
                     } else {
                         logger.error('queue', `Push failed: ${pushError}`);
                         notify({
-                            title: '❌ Push Failed',
+                            title: `Push Failed - ${project.name}`,
                             message: `Commit created but push failed: ${pushError}`,
                         });
                     }
@@ -150,7 +150,7 @@ class CommitQueueProcessor {
             if (!pushed && !pushError) {
                 // If not pushed and no error (e.g. push disabled), still notify success
                 notify({
-                    title: 'Commit Executed',
+                    title: `Commit Created - ${project.name}`,
                     message: `Commit "${commit.message}" created locally.`,
                 });
             }
@@ -161,7 +161,7 @@ class CommitQueueProcessor {
             logger.error('queue', `Commit execution failed: ${msg}`);
 
             notify({
-                title: 'Commit Failed',
+                title: `Commit Failed - ${project.name}`,
                 message: `Failed to execute commit "${commit.message}": ${msg}`,
             });
 

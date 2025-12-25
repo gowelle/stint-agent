@@ -7,9 +7,8 @@ describe('Config', () => {
     beforeEach(() => {
         vi.resetModules();
         process.env = { ...originalEnv };
-        config.clear(); // Clear config store if needed
-        // Since config is a singleton exported as const, we might need to mock Conf or rely on it reading env vars dynamically.
-        // The methods getReverbAppKey and getWsUrl read process.env dynamically, so we can just set process.env.
+        // NOTE: Do NOT call config.clear() here - it would wipe the real user config file!
+        // These tests only modify process.env and specific config keys, then restore them in afterEach.
     });
 
     afterEach(() => {

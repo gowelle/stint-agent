@@ -1,7 +1,24 @@
 import Conf from 'conf';
 import { Config, LinkedProject } from '../types/index.js';
-import { randomUUID } from 'crypto';
+import { createHash } from 'crypto';
 import os from 'os';
+
+/**
+ * Generate a stable machine ID based on hostname, username, and platform.
+ * This ensures the ID stays consistent even if config is reset.
+ */
+function generateStableMachineId(): string {
+    const machineInfo = [
+        os.hostname(),
+        os.userInfo().username,
+        os.platform(),
+        os.arch(),
+    ].join('-');
+
+    const hash = createHash('sha256').update(machineInfo).digest('hex');
+    // Format as UUID-like string for consistency
+    return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`;
+}
 
 const DEFAULT_CONFIG: Partial<Config> = {
     apiUrl: 'https://stint.codes',
@@ -18,7 +35,7 @@ class ConfigManager {
             projectName: 'stint',
             defaults: {
                 ...DEFAULT_CONFIG,
-                machineId: randomUUID(),
+                machineId: generateStableMachineId(),
                 machineName: os.hostname(),
             } as Config,
         });
@@ -62,6 +79,11 @@ class ConfigManager {
         return this.conf.get('machineName');
     }
 
+    // Normalize path to use forward slashes for consistent storage/lookup
+    private normalizePath(p: string): string {
+        return p.replace(/\\/g, '/');
+    }
+
     // Project management
     getProjects(): Record<string, LinkedProject> {
         return this.conf.get('projects') || {};
@@ -69,18 +91,21 @@ class ConfigManager {
 
     getProject(path: string): LinkedProject | undefined {
         const projects = this.getProjects();
-        return projects[path];
+        const normalizedPath = this.normalizePath(path);
+        return projects[normalizedPath];
     }
 
     setProject(path: string, project: LinkedProject): void {
         const projects = this.getProjects();
-        projects[path] = project;
+        const normalizedPath = this.normalizePath(path);
+        projects[normalizedPath] = project;
         this.conf.set('projects', projects);
     }
 
     removeProject(path: string): void {
         const projects = this.getProjects();
-        delete projects[path];
+        const normalizedPath = this.normalizePath(path);
+        delete projects[normalizedPath];
         this.conf.set('projects', projects);
     }
 

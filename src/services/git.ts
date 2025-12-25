@@ -30,22 +30,21 @@ class GitServiceImpl {
      * @returns Repository info including branches, status, and last commit
      * @throws Error if not a valid repository or no commits found
      */
-    async getRepoInfo(path: string): Promise<RepoInfo> {
+    async getRepoInfo(path: string, onProgress?: (stage: string) => void): Promise<RepoInfo> {
         try {
             const git = this.getGit(path);
 
-            // Get current branch
+            onProgress?.('Getting branch information...');
             const branchSummary = await git.branch();
             const currentBranch = branchSummary.current;
-
-            // Get all branches
             const branches = branchSummary.all;
 
-            // Get remote URL
+            onProgress?.('Checking remote configuration...');
+
             const remotes = await git.getRemotes(true);
             const remoteUrl = remotes.length > 0 ? remotes[0].refs.fetch : null;
 
-            // Get default branch (what origin/HEAD points to)
+            onProgress?.('Determining default branch...');
             let defaultBranch = currentBranch; // fallback to current branch
             try {
                 // Try to get the remote's default branch by checking origin/HEAD
@@ -64,10 +63,10 @@ class GitServiceImpl {
                 // Otherwise keep currentBranch as default
             }
 
-            // Get status
+            onProgress?.('Checking repository status...');
             const status = await this.getStatus(path);
 
-            // Get last commit info
+            onProgress?.('Getting commit history...');
             const log = await git.log({ maxCount: 1 });
             const lastCommit = log.latest;
 

@@ -3,29 +3,110 @@ import ora from 'ora';
 import chalk from 'chalk';
 import { exec } from 'child_process';
 import { promisify } from 'util';
+import { join } from 'path';
+import { readFileSync } from 'fs';
 import {
     validatePidFile,
     killProcess,
     isProcessRunning,
 } from '../utils/process.js';
 import { logger } from '../utils/logger.js';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
 
 const execAsync = promisify(exec);
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+interface ReleaseChannel {
+    pattern: string;
+    description: string;
+}
+
+interface StintConfig {
+    channels: Record<string, ReleaseChannel>;
+    defaultChannel: string;
+}
+
+function getChannelConfig(): StintConfig {
+    try {
+        const packagePath = join(__dirname, '..', '..', 'package.json');
+        const packageJson = JSON.parse(readFileSync(packagePath, 'utf-8'));
+        return packageJson.stint as StintConfig;
+    } catch {
+        // Default configuration if package.json can't be read or parsed
+        return {
+            channels: {
+                stable: {
+                    pattern: '^\\d+\\.\\d+\\.\\d+$',
+                    description: 'Production-ready releases'
+                }
+            },
+            defaultChannel: 'stable'
+        };
+    }
+}
+
+function getVersionPattern(channel: string): string {
+    const config = getChannelConfig();
+    return config.channels[channel]?.pattern || config.channels[config.defaultChannel].pattern;
+}
+
+async function getLatestVersionForChannel(channel: string): Promise<string> {
+    const pattern = getVersionPattern(channel);
+    const regex = new RegExp(pattern);
+
+    // Get all versions from npm
+    const { stdout } = await execAsync('npm view @gowelle/stint-agent versions --json');
+    const versions = JSON.parse(stdout) as string[];
+
+    // Filter versions matching the channel pattern and sort them
+    const channelVersions = versions
+        .filter(v => regex.test(v))
+        .sort((a, b) => {
+            const [aMajor, aMinor, aPatch] = a.split('.')
+                .map(part => parseInt(part.split('-')[0]));
+            const [bMajor, bMinor, bPatch] = b.split('.')
+                .map(part => parseInt(part.split('-')[0]));
+
+            if (aMajor !== bMajor) return bMajor - aMajor;
+            if (aMinor !== bMinor) return bMinor - aMinor;
+            return bPatch - aPatch;
+        });
+
+    if (channelVersions.length === 0) {
+        throw new Error(`No versions found for channel: ${channel}`);
+    }
+
+    return channelVersions[0];
+}
 
 export function registerUpdateCommand(program: Command): void {
     program
         .command('update')
         .description('Update stint agent to the latest version')
-        .action(async () => {
+        .option('-c, --channel <channel>', 'Release channel (stable, beta, nightly)')
+        .action(async (command) => {
             const spinner = ora('Checking for updates...').start();
 
             try {
-                // 1. Get current version
+                // 1. Get current version and channel config
                 const currentVersion = program.version();
+                const config = getChannelConfig();
+                const channel = (command.opts().channel || config.defaultChannel).toLowerCase();
 
-                // 2. Get latest version from npm
-                const { stdout: latestVersion } = await execAsync('npm view @gowelle/stint-agent version');
-                const cleanLatestVersion = latestVersion.trim();
+                if (!config.channels[channel]) {
+                    spinner.fail(`Invalid channel: ${channel}`);
+                    console.log(chalk.gray('\nAvailable channels:'));
+                    Object.entries(config.channels).forEach(([name, info]) => {
+                        console.log(chalk.gray(`  ${name.padEnd(10)} ${info.description}`));
+                    });
+                    console.log();
+                    process.exit(1);
+                }
+
+                // 2. Get latest version for the selected channel
+                spinner.text = `Checking for updates in ${channel} channel...`;
+                const cleanLatestVersion = await getLatestVersionForChannel(channel);
 
                 if (currentVersion === cleanLatestVersion) {
                     spinner.succeed('Already up to date');
@@ -38,7 +119,7 @@ export function registerUpdateCommand(program: Command): void {
 
                 // 3. Install update
                 spinner.text = 'Installing update...';
-                await execAsync('npm install -g @gowelle/stint-agent@latest');
+                await execAsync(`npm install -g @gowelle/stint-agent@${cleanLatestVersion}`);
 
                 spinner.succeed(`Updated to version ${cleanLatestVersion}`);
 

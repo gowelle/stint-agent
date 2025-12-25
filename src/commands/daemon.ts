@@ -6,6 +6,7 @@ import path from 'path';
 import os from 'os';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import { createInterface } from 'readline';
 import {
     validatePidFile,
     killProcess,
@@ -13,11 +14,84 @@ import {
     isProcessRunning,
     getPidFilePath,
 } from '../utils/process.js';
+import { getProcessStats } from '../utils/monitor.js';
 import { authService } from '../services/auth.js';
 import { logger } from '../utils/logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+interface LogFilter {
+    level?: string;
+    category?: string;
+    since?: Date;
+    until?: Date;
+    search?: string;
+}
+
+function parseLogLine(line: string): { timestamp: Date; level: string; category: string; message: string } | null {
+    const match = line.match(/\[(.*?)\] (\w+)\s+\[(.*?)\] (.*)/);
+    if (!match) return null;
+
+    const [, timestamp, level, category, message] = match;
+    return {
+        timestamp: new Date(timestamp),
+        level,
+        category,
+        message
+    };
+}
+
+function shouldIncludeLine(parsed: ReturnType<typeof parseLogLine>, filter: LogFilter): boolean {
+    if (!parsed) return false;
+
+    if (filter.level && filter.level.toUpperCase() !== parsed.level) {
+        return false;
+    }
+
+    if (filter.category && !parsed.category.toLowerCase().includes(filter.category.toLowerCase())) {
+        return false;
+    }
+
+    if (filter.since && parsed.timestamp < filter.since) {
+        return false;
+    }
+
+    if (filter.until && parsed.timestamp > filter.until) {
+        return false;
+    }
+
+    if (filter.search && !parsed.message.toLowerCase().includes(filter.search.toLowerCase())) {
+        return false;
+    }
+
+    return true;
+}
+
+function formatUptime(seconds: number): string {
+    const days = Math.floor(seconds / 86400);
+    const hours = Math.floor((seconds % 86400) / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+
+    const parts = [];
+    if (days > 0) parts.push(`${days}d`);
+    if (hours > 0) parts.push(`${hours}h`);
+    if (minutes > 0) parts.push(`${minutes}m`);
+    if (secs > 0 || parts.length === 0) parts.push(`${secs}s`);
+
+    return parts.join(' ');
+}
+
+function colorizeLevel(level: string): string {
+    switch (level.trim()) {
+        case 'ERROR': return chalk.red(level);
+        case 'WARN': return chalk.yellow(level);
+        case 'INFO': return chalk.blue(level);
+        case 'DEBUG': return chalk.gray(level);
+        default: return level;
+    }
+}
 
 export function registerDaemonCommands(program: Command): void {
     const daemon = program.command('daemon').description('Manage the Stint daemon');
@@ -153,6 +227,17 @@ export function registerDaemonCommands(program: Command): void {
                     console.log(`${chalk.bold('PID:')}         ${pid}`);
                     console.log(`${chalk.bold('PID File:')}    ${getPidFilePath()}`);
                     console.log(`${chalk.bold('Logs:')}        ${path.join(os.homedir(), '.config', 'stint', 'logs', 'daemon.log')}`);
+
+                    // Get resource usage
+                    const stats = await getProcessStats(pid);
+                    if (stats) {
+                        console.log(chalk.blue('\n📊 Resource Usage:'));
+                        console.log(chalk.gray('─'.repeat(50)));
+                        console.log(`${chalk.bold('CPU:')}         ${stats.cpuPercent}%`);
+                        console.log(`${chalk.bold('Memory:')}      ${stats.memoryMB} MB`);
+                        console.log(`${chalk.bold('Threads:')}     ${stats.threads}`);
+                        console.log(`${chalk.bold('Uptime:')}      ${formatUptime(stats.uptime)}`);
+                    }
                 } else {
                     console.log(`${chalk.bold('Status:')}      ${chalk.yellow('Not running')}`);
                     console.log(chalk.gray('Run "stint daemon start" to start the daemon.'));
@@ -169,40 +254,6 @@ export function registerDaemonCommands(program: Command): void {
             }
         });
 
-    // stint daemon logs
-    daemon
-        .command('logs')
-        .description('Tail daemon logs')
-        .option('-n, --lines <number>', 'Number of lines to show', '50')
-        .action(async (options) => {
-            try {
-                const logFile = path.join(os.homedir(), '.config', 'stint', 'logs', 'daemon.log');
-
-                if (!fs.existsSync(logFile)) {
-                    console.log(chalk.yellow('\n⚠ No daemon logs found.'));
-                    console.log(chalk.gray('The daemon has not been started yet.\n'));
-                    return;
-                }
-
-                const lines = parseInt(options.lines, 10);
-                const content = fs.readFileSync(logFile, 'utf8');
-                const logLines = content.split('\n').filter((line: string) => line.trim());
-                const lastLines = logLines.slice(-lines);
-
-                console.log(chalk.blue(`\n📋 Last ${lastLines.length} lines of daemon logs:\n`));
-                console.log(chalk.gray('─'.repeat(80)));
-                lastLines.forEach((line: string) => console.log(line));
-                console.log(chalk.gray('─'.repeat(80)));
-                console.log(chalk.gray(`\nLog file: ${logFile}`));
-                console.log(chalk.gray('Use "tail -f" to follow logs in real-time.\n'));
-
-                logger.info('daemon', 'Logs command executed');
-            } catch (error) {
-                logger.error('daemon', 'Logs command failed', error as Error);
-                console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
-                process.exit(1);
-            }
-        });
 
     // stint daemon restart
     daemon
@@ -261,6 +312,150 @@ export function registerDaemonCommands(program: Command): void {
             } catch (error) {
                 startSpinner.fail('Failed to start daemon');
                 throw error;
+            }
+        });
+
+    // stint daemon logs
+    daemon
+        .command('logs')
+        .description('View and filter daemon logs')
+        .option('-l, --level <level>', 'Filter by log level (INFO, WARN, ERROR, DEBUG)')
+        .option('-c, --category <category>', 'Filter by log category')
+        .option('-s, --since <date>', 'Show logs since date/time (ISO format or relative time like "1h", "2d")')
+        .option('-u, --until <date>', 'Show logs until date/time (ISO format or relative time like "1h", "2d")')
+        .option('--search <text>', 'Search for specific text in log messages')
+        .option('-f, --follow', 'Follow log output in real time')
+        .option('-n, --lines <number>', 'Number of lines to show', '50')
+        .action(async (command) => {
+            const spinner = ora('Loading logs...').start();
+
+            try {
+                const logPath = path.join(os.homedir(), '.config', 'stint', 'logs', 'agent.log');
+                if (!fs.existsSync(logPath)) {
+                    spinner.fail('No logs found');
+                    return;
+                }
+
+                // Parse time filters
+                const now = new Date();
+                let since: Date | undefined;
+                let until: Date | undefined;
+
+                if (command.since) {
+                    if (command.since.match(/^\d+[hdw]$/)) {
+                        const value = parseInt(command.since.slice(0, -1));
+                        const unit = command.since.slice(-1) as 'h' | 'd' | 'w';
+                        const ms = value * {
+                            h: 60 * 60 * 1000,
+                            d: 24 * 60 * 60 * 1000,
+                            w: 7 * 24 * 60 * 60 * 1000
+                        }[unit];
+                        since = new Date(now.getTime() - ms);
+                    } else {
+                        since = new Date(command.since);
+                    }
+                }
+
+                if (command.until) {
+                    if (command.until.match(/^\d+[hdw]$/)) {
+                        const value = parseInt(command.until.slice(0, -1));
+                        const unit = command.until.slice(-1) as 'h' | 'd' | 'w';
+                        const ms = value * {
+                            h: 60 * 60 * 1000,
+                            d: 24 * 60 * 60 * 1000,
+                            w: 7 * 24 * 60 * 60 * 1000
+                        }[unit];
+                        until = new Date(now.getTime() - ms);
+                    } else {
+                        until = new Date(command.until);
+                    }
+                }
+
+                const filter: LogFilter = {
+                    level: command.level?.toUpperCase(),
+                    category: command.category,
+                    since,
+                    until,
+                    search: command.search
+                };
+
+                // If following logs, start from end
+                const maxLines = command.follow ? 10 : parseInt(command.lines);
+                const lines: string[] = [];
+                const fileStream = fs.createReadStream(logPath, { encoding: 'utf8' });
+                const rl = createInterface({ input: fileStream, crlfDelay: Infinity });
+
+                spinner.stop();
+
+                for await (const line of rl) {
+                    const parsed = parseLogLine(line);
+                    if (parsed && shouldIncludeLine(parsed, filter)) {
+                        lines.push(line);
+                        if (lines.length > maxLines && !command.follow) {
+                            lines.shift();
+                        }
+                    }
+                }
+
+                // Display filtered logs
+                if (lines.length === 0) {
+                    console.log(chalk.yellow('\nNo matching logs found\n'));
+                    return;
+                }
+
+                console.log(); // Empty line for readability
+                lines.forEach(line => {
+                    const parsed = parseLogLine(line);
+                    if (parsed) {
+                        const { timestamp, level, category, message } = parsed;
+                        console.log(
+                            chalk.gray(`[${timestamp.toISOString()}]`),
+                            colorizeLevel(level.padEnd(5)),
+                            chalk.cyan(`[${category}]`),
+                            message
+                        );
+                    }
+                });
+                console.log(); // Empty line for readability
+
+                // Follow mode
+                if (command.follow) {
+                    console.log(chalk.gray('Following log output (Ctrl+C to exit)...\n'));
+                    const tail = fs.watch(logPath, (eventType) => {
+                        if (eventType === 'change') {
+                            const newLines = fs.readFileSync(logPath, 'utf8')
+                                .split('\n')
+                                .slice(-1);
+
+                            newLines.forEach(line => {
+                                if (!line) return;
+                                const parsed = parseLogLine(line);
+                                if (parsed && shouldIncludeLine(parsed, filter)) {
+                                    const { timestamp, level, category, message } = parsed;
+                                    console.log(
+                                        chalk.gray(`[${timestamp.toISOString()}]`),
+                                        colorizeLevel(level.padEnd(5)),
+                                        chalk.cyan(`[${category}]`),
+                                        message
+                                    );
+                                }
+                            });
+                        }
+                    });
+
+                    // Clean up watcher on exit
+                    process.on('SIGINT', () => {
+                        tail.close();
+                        console.log(chalk.gray('\nStopped following logs\n'));
+                        process.exit(0);
+                    });
+                }
+
+            } catch (error) {
+                spinner.fail('Failed to read logs');
+                logger.error('daemon', 'Logs command failed', error as Error);
+                console.error(chalk.red(`\n✖ Error: ${(error as Error).message}\n`));
+                process.exit(1);
             }
         });
 }

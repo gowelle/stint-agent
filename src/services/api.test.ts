@@ -217,7 +217,7 @@ describe('ApiService', () => {
     describe('getPendingCommits', () => {
         it('should fetch pending commits for project', async () => {
             const mockCommits = [
-                { id: 'commit-1', projectId: 'proj-1', message: 'Test commit', createdAt: '' },
+                { id: 'commit-1', projectId: 'proj-1', message: 'Test commit', createdAt: '2024-01-01T00:00:00Z' },
             ];
 
             mockFetch.mockResolvedValue({
@@ -237,7 +237,7 @@ describe('ApiService', () => {
 
     describe('markCommitExecuted', () => {
         it('should mark commit as executed with sha', async () => {
-            const mockCommit = { id: 'commit-1', projectId: 'proj-1', message: 'Test', status: 'executed', sha: 'abc123', createdAt: '' };
+            const mockCommit = { id: 'commit-1', projectId: 'proj-1', message: 'Test', status: 'executed', sha: 'abc123', createdAt: '2024-01-01T00:00:00Z' };
 
             mockFetch.mockResolvedValue({
                 ok: true,

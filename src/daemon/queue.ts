@@ -53,11 +53,11 @@ class CommitQueueProcessor {
     /**
      * Execute a single commit
      */
-    async executeCommit(commit: PendingCommit, project: Project): Promise<string> {
+    async executeCommit(commit: PendingCommit, project: Project, onProgress?: (stage: string) => void): Promise<string> {
         logger.info('queue', `Processing commit: ${commit.id} - ${commit.message}`);
 
         try {
-            // Find the local path for this project
+            onProgress?.('Finding project directory...');
             const projectPath = this.findProjectPath(project.id);
             if (!projectPath) {
                 throw new Error(`Project ${project.id} is not linked to any local directory`);
@@ -65,13 +65,13 @@ class CommitQueueProcessor {
 
             logger.info('queue', `Executing in directory: ${projectPath}`);
 
-            // Validate it's a git repository
+            onProgress?.('Validating repository...');
             const isRepo = await gitService.isRepo(projectPath);
             if (!isRepo) {
                 throw new Error(`Directory ${projectPath} is not a git repository`);
             }
 
-            // Check repository status
+            onProgress?.('Checking repository status...');
             const status = await gitService.getStatus(projectPath);
 
             // Allow committing if there ARE staged changes.
@@ -88,13 +88,13 @@ class CommitQueueProcessor {
             // The user is expected to have prepared the index.
             logger.info('queue', `Committing ${status.staged.length} staged files.`);
 
-            // Create commit
+            onProgress?.('Creating commit...');
             logger.info('queue', `Creating commit with message: "${commit.message}"`);
             const sha = await gitService.commit(projectPath, commit.message);
 
             logger.success('queue', `Commit created successfully: ${sha}`);
 
-            // Report success to API
+            onProgress?.('Reporting to server...');
             await this.reportSuccess(commit.id, sha);
 
             return sha;

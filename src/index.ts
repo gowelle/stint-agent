@@ -14,6 +14,7 @@ import { registerDaemonCommands } from './commands/daemon.js';
 import { registerCommitCommands } from './commands/commit.js';
 import { registerInstallCommand, registerUninstallCommand } from './commands/install.js';
 import { registerUpdateCommand } from './commands/update.js';
+import { registerDoctorCommand } from './commands/doctor.js';
 import { logger } from './utils/logger.js';
 
 // Version is injected at build time via tsup define
@@ -51,6 +52,7 @@ registerCommitCommands(program);
 registerInstallCommand(program);
 registerUninstallCommand(program);
 registerUpdateCommand(program);
+registerDoctorCommand(program);
 
 
 

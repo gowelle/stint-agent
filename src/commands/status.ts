@@ -10,16 +10,38 @@ import path from 'path';
 import os from 'os';
 import { validatePidFile } from '../utils/process.js';
 
+interface StatusOptions {
+    dashboard?: boolean;
+}
+
 export function registerStatusCommand(program: Command): void {
     program
         .command('status')
         .description('Show linked project and connection status')
-        .action(async () => {
+        .option('-d, --dashboard', 'Launch interactive TUI dashboard')
+        .action(async (options: StatusOptions) => {
+            const cwd = process.cwd();
+
+            // If dashboard mode, render the TUI
+            if (options.dashboard) {
+                try {
+                    // Dynamic import to avoid loading React/Ink when not needed
+                    const { render } = await import('ink');
+                    const { createElement } = await import('react');
+                    const { StatusDashboard } = await import('../components/StatusDashboard.js');
+
+                    render(createElement(StatusDashboard, { cwd }));
+                    return;
+                } catch (error) {
+                    console.error(chalk.red(`Failed to start dashboard: ${(error as Error).message}`));
+                    process.exit(1);
+                }
+            }
+
+            // Static output mode (default)
             const spinner = ora('Gathering status...').start();
 
             try {
-                const cwd = process.cwd();
-
                 // Get linked project
                 const linkedProject = await projectService.getLinkedProject(cwd);
 

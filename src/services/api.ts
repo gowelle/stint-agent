@@ -223,13 +223,22 @@ class ApiServiceImpl {
             `/api/agent/pending-commits?project_id=${projectId}`
         );
 
-        const commits: PendingCommit[] = response.data.map((item) => ({
-            id: item.id,
-            projectId: item.project_id || item.projectId,
-            message: item.message,
-            files: item.files,
-            createdAt: item.created_at || item.createdAt,
-        }));
+        const commits: PendingCommit[] = response.data.map((item) => {
+            const projectId = item.project_id || item.projectId;
+            const createdAt = item.created_at || item.createdAt;
+
+            if (!projectId || !createdAt) {
+                throw new Error(`Invalid commit data received from API: ${JSON.stringify(item)}`);
+            }
+
+            return {
+                id: item.id,
+                projectId,
+                message: item.message,
+                files: item.files,
+                createdAt,
+            };
+        });
 
         logger.info('api', `Found ${commits.length} pending commits`);
         return commits;
@@ -254,14 +263,22 @@ class ApiServiceImpl {
             );
             const data = response.data;
 
+            const projectId = data.project_id || data.projectId;
+            const createdAt = data.created_at || data.createdAt;
+            const executedAt = data.executed_at || data.executedAt;
+
+            if (!projectId || !createdAt) {
+                throw new Error(`Invalid commit data received from API: ${JSON.stringify(data)}`);
+            }
+
             const commit: Commit = {
                 id: data.id,
-                projectId: data.project_id || data.projectId,
+                projectId,
                 message: data.message,
                 sha: data.sha,
                 status: data.status,
-                createdAt: data.created_at || data.createdAt,
-                executedAt: data.executed_at || data.executedAt,
+                createdAt,
+                executedAt,
                 error: data.error,
             };
 
@@ -310,6 +327,17 @@ class ApiServiceImpl {
 
             logger.success('api', `Project ${projectId} synced`);
         }, 'Sync project');
+    }
+
+    /**
+     * Test API connectivity
+     */
+    async ping(): Promise<void> {
+        try {
+            await this.request('/api/agent/ping');
+        } catch (error) {
+            throw new Error(`Failed to connect to API: ${(error as Error).message}`);
+        }
     }
 
     async getLinkedProjects(): Promise<Project[]> {

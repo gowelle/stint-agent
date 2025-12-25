@@ -131,7 +131,7 @@ export function registerCommitCommands(program: Command): void {
                     return;
                 }
 
-                const execSpinner = ora('Executing commit...').start();
+                const execSpinner = ora('Preparing commit...').start();
 
                 // We need to create a minimal project object for execution
                 const project = {
@@ -141,7 +141,9 @@ export function registerCommitCommands(program: Command): void {
                     updatedAt: '',
                 };
 
-                const sha = await commitQueue.executeCommit(commit, project);
+                const sha = await commitQueue.executeCommit(commit, project, (stage) => {
+                    execSpinner.text = stage;
+                });
 
                 execSpinner.succeed('Commit executed successfully!');
 
@@ -150,7 +152,17 @@ export function registerCommitCommands(program: Command): void {
                 console.log(`${chalk.bold('Commit ID:')}  ${commit.id}`);
                 console.log(`${chalk.bold('Message:')}    ${commit.message}`);
                 console.log(`${chalk.bold('SHA:')}        ${sha}`);
+                console.log(`${chalk.bold('Files:')}      ${status.staged.length} files committed`);
                 console.log();
+                
+                // Show committed files
+                if (status.staged.length > 0) {
+                    console.log(chalk.gray('Committed files:'));
+                    status.staged.forEach(file => {
+                        console.log(chalk.green(`  + ${file}`));
+                    });
+                    console.log();                    
+                }
 
                 logger.success('commit', `Executed commit ${commit.id} -> ${sha}`);
             } catch (error) {

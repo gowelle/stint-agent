@@ -8,7 +8,7 @@
   "parserOptions": {
     "ecmaVersion": 2022,
     "sourceType": "module",
-    "project": "./tsconfig.json"
+    "project": ["./tsconfig.json", "./scripts/tsconfig.json"]
   },
   "env": {
     "node": true,

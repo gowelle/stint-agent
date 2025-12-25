@@ -1,6 +1,13 @@
 import notifier from 'node-notifier';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { logger } from './logger.js';
 import { config } from './config.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+// Assuming dist/ is where this code runs, and assets/ is sibling
+const DEFAULT_ICON = path.resolve(__dirname, '../assets/logo.png');
 
 export interface NotificationOptions {
     title: string;
@@ -21,7 +28,7 @@ export function notify(options: NotificationOptions): void {
             title: options.title,
             message: options.message,
             open: options.open,
-            icon: options.icon,
+            icon: options.icon || DEFAULT_ICON,
             sound: true,
             wait: false,
             appID: 'Stint Agent',

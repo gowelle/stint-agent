@@ -117,6 +117,10 @@ class CommitQueueProcessor {
                     await gitService.push(projectPath);
                     pushed = true;
                     logger.success('queue', `Pushed commit ${sha} to remote`);
+                    notify({
+                        title: 'Commit Executed & Pushed',
+                        message: `Commit "${commit.message}" successfully pushed.`,
+                    });
                 } catch (error) {
                     pushError = (error as Error).message;
                     const isConflict = pushError.includes('rejected') ||
@@ -143,13 +147,26 @@ class CommitQueueProcessor {
             onProgress?.('Reporting to server...');
             await this.reportSuccess(commit.id, sha, pushed, pushError);
 
+            if (!pushed && !pushError) {
+                // If not pushed and no error (e.g. push disabled), still notify success
+                notify({
+                    title: 'Commit Executed',
+                    message: `Commit "${commit.message}" created locally.`,
+                });
+            }
+
             return sha;
         } catch (error) {
-            const errorMessage = (error as Error).message;
-            logger.error('queue', `Commit execution failed: ${errorMessage}`);
+            msg = (error as Error).message;
+            logger.error('queue', `Commit execution failed: ${msg}`);
+
+            notify({
+                title: 'Commit Failed',
+                message: `Failed to execute commit "${commit.message}": ${msg}`,
+            });
 
             // Report failure to API
-            await this.reportFailure(commit.id, errorMessage);
+            await this.reportFailure(commit.id, msg);
 
             throw error;
         }

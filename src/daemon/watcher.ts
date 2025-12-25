@@ -3,6 +3,7 @@ import { projectService } from '../services/project.js';
 import { gitService } from '../services/git.js';
 import { apiService } from '../services/api.js';
 import { logger } from '../utils/logger.js';
+import { notify } from '../utils/notify.js';
 
 interface WatcherInfo {
     watcher: fs.FSWatcher;
@@ -202,6 +203,11 @@ export class FileWatcher {
             await apiService.syncProject(projectId, repoInfo);
 
             logger.success('watcher', `Synced project ${projectId}`);
+
+            notify({
+                title: 'Sync Complete',
+                message: `Project ${projectId} synced successfully.`,
+            });
         } catch (error) {
             logger.error('watcher', `Failed to sync project ${projectId}`, error as Error);
             // Don't throw - we want to continue watching even if sync fails

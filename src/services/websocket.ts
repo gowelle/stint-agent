@@ -117,32 +117,15 @@ class WebSocketServiceImpl {
     async subscribeToUserChannel(userId: string): Promise<void> {
         this.userId = userId;
 
-        if (!this.isConnected()) {
-            logger.warn('websocket', 'Cannot subscribe: not connected');
-            return;
-        }
-
-        if (!this.socketId) {
-            logger.warn('websocket', 'Cannot subscribe: socket_id not available yet');
-            return;
-        }
-
-        const channel = `private-user.${userId}`;
-        logger.info('websocket', `Subscribing to channel: ${channel}`);
-
-        try {
-            // Get authentication signature from Laravel backend
-            const auth = await this.getChannelAuth(channel, this.socketId);
-
+        if (this.userId) {
+            const channel = `user.${this.userId}`;
+            logger.info('websocket', `Subscribing to channel: ${channel}`);
             this.sendMessage({
                 event: 'pusher:subscribe',
                 data: {
                     channel,
-                    auth,
                 },
             });
-        } catch (error) {
-            logger.error('websocket', 'Failed to authenticate channel subscription', error as Error);
         }
     }
 

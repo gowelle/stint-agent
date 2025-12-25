@@ -204,7 +204,7 @@ class WebSocketServiceImpl {
         this.ws!.send(JSON.stringify(message));
     }
 
-    private handleMessage(data: Buffer): void {
+    private async handleMessage(data: Buffer): Promise<void> {
         try {
             const message = JSON.parse(data.toString());
 

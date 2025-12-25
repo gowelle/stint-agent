@@ -248,8 +248,8 @@ class WebSocketServiceImpl {
                         // Notify user about authentication issue
                         const { notify } = await import('../utils/notify.js');
                         notify({
-                            title: 'Stint Agent - WebSocket Error',
-                            message: 'Connection is unauthorized. Please try restarting the daemon or running "stint login" again.',
+                            title: 'Stint Agent - Connection Issue',
+                            message: 'WebSocket authentication failed. Notifications may be delayed (falling back to polling).',
                         });
                     }
                 } catch (parseError) {

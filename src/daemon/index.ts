@@ -1,6 +1,7 @@
 import { authService } from '../services/auth.js';
 import { apiService } from '../services/api.js';
 import { websocketService } from '../services/websocket.js';
+import { pollingService } from '../services/polling.js';
 import { commitQueue } from './queue.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
@@ -48,6 +49,19 @@ export async function startDaemon(): Promise<void> {
         // Register event handlers
         websocketService.onCommitApproved((commit, project) => {
             logger.info('daemon', `Commit approved: ${commit.id} for project ${project.name}`);
+
+            notify({
+                title: 'Commit Approved',
+                message: `${commit.message}\nProject: ${project.name}`,
+            });
+
+            // Add to queue for processing
+            commitQueue.addToQueue(commit, project);
+        });
+
+        // Also register polling handler for redundancy/fallback
+        pollingService.onCommitApproved((commit, project) => {
+            logger.info('daemon', `Commit approved (via polling): ${commit.id} for project ${project.name}`);
 
             notify({
                 title: 'Commit Approved',
@@ -116,10 +130,20 @@ export async function startDaemon(): Promise<void> {
         startHeartbeat();
 
         // Start file watcher for auto-sync
-        fileWatcher.start();
+        // Initialize project links from config
+        logger.info('daemon', 'Initializing projects...');
+        const linkedProjects = projectService.getAllLinkedProjects();
+        Object.values(linkedProjects).forEach((project) => {
+            logger.info('daemon', `Linked project: ${project.projectId}`);
+            fileWatcher.watchProject(project.projectId);
+        });
+
+        // Start polling service
+        pollingService.start();
+
+        logger.info('daemon', 'Daemon started successfully');
 
         // Sync all linked projects on startup
-        const linkedProjects = projectService.getAllLinkedProjects();
         const projectEntries = Object.entries(linkedProjects);
         if (projectEntries.length > 0) {
             logger.info('daemon', `Syncing ${projectEntries.length} linked project(s) on startup...`);

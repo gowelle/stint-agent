@@ -6,6 +6,7 @@ import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
 import { FileWatcher } from './watcher.js';
 import { notify } from '../utils/notify.js';
+import { projectService } from '../services/project.js';
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
@@ -97,6 +98,21 @@ export async function startDaemon(): Promise<void> {
 
         // Start file watcher for auto-sync
         fileWatcher.start();
+
+        // Sync all linked projects on startup
+        const linkedProjects = projectService.getAllLinkedProjects();
+        const projectEntries = Object.entries(linkedProjects);
+        if (projectEntries.length > 0) {
+            logger.info('daemon', `Syncing ${projectEntries.length} linked project(s) on startup...`);
+            for (const [, linkedProject] of projectEntries) {
+                try {
+                    await fileWatcher.syncProjectById(linkedProject.projectId);
+                } catch (error) {
+                    logger.error('daemon', `Failed to sync project ${linkedProject.projectId} on startup`, error as Error);
+                }
+            }
+            logger.success('daemon', 'Initial project sync complete');
+        }
 
         logger.success('daemon', 'Daemon started successfully');
 

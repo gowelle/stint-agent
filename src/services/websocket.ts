@@ -192,9 +192,9 @@ class WebSocketServiceImpl {
 
             // Handle custom events
             if (message.event === 'commit.approved') {
-                const { commit, project } = message.data;
-                logger.info('websocket', `Commit approved: ${commit.id}`);
-                this.commitApprovedHandlers.forEach((handler) => handler(commit, project));
+                const { pendingCommit } = message.data;
+                logger.info('websocket', `Commit approved: ${pendingCommit.id}`);
+                this.commitApprovedHandlers.forEach((handler) => handler(pendingCommit, pendingCommit.project));
                 return;
             }
 
@@ -220,16 +220,16 @@ class WebSocketServiceImpl {
             }
 
             if (message.event === 'sync.requested') {
-                const { projectId } = message.data;
-                logger.info('websocket', `Sync requested for project: ${projectId}`);
-                this.syncRequestedHandlers.forEach((handler) => handler(projectId));
+                const { project } = message.data;
+                logger.info('websocket', `Sync requested for project: ${project.id}`);
+                this.syncRequestedHandlers.forEach((handler) => handler(project.id));
                 return;
             }
 
             if (message.event === 'agent.disconnected') {
-                const reason = message.data?.reason || 'Server requested disconnect';
-                logger.warn('websocket', `Agent disconnected by server: ${reason}`);
-                this.agentDisconnectedHandlers.forEach((handler) => handler(reason));
+                const { reason } = message.data;
+                logger.warn('websocket', `Agent disconnected by server: ${reason ?? 'Server requested disconnect'}`);
+                this.agentDisconnectedHandlers.forEach((handler) => handler(reason ?? 'Server requested disconnect'));
                 return;
             }
 

@@ -87,6 +87,7 @@ describe('CommitQueue Integration Tests', () => {
             // Arrange
             mockGitService.isRepo.mockResolvedValue(true);
             mockGitService.stageFiles.mockResolvedValue(undefined);
+            mockGitService.push.mockResolvedValue(undefined);
             // First call before staging, second call after staging
             mockGitService.getStatus
                 .mockResolvedValueOnce({
@@ -114,13 +115,16 @@ describe('CommitQueue Integration Tests', () => {
             expect(mockGitService.isRepo).toHaveBeenCalledWith(testProjectPath);
             expect(mockGitService.stageFiles).toHaveBeenCalledWith(testProjectPath, testCommit.files);
             expect(mockGitService.commit).toHaveBeenCalledWith(testProjectPath, testCommit.message);
-            expect(mockApiService.markCommitExecuted).toHaveBeenCalledWith(testCommit.id, 'abc123def456');
+            expect(mockGitService.push).toHaveBeenCalledWith(testProjectPath);
+            // New signature: markCommitExecuted(commitId, sha, pushed, pushError)
+            expect(mockApiService.markCommitExecuted).toHaveBeenCalledWith(testCommit.id, 'abc123def456', true, undefined);
         });
 
         it('should report success to API after commit', async () => {
             // Arrange
             mockGitService.isRepo.mockResolvedValue(true);
             mockGitService.stageFiles.mockResolvedValue(undefined);
+            mockGitService.push.mockResolvedValue(undefined);
             mockGitService.getStatus
                 .mockResolvedValueOnce({
                     staged: [],
@@ -144,7 +148,7 @@ describe('CommitQueue Integration Tests', () => {
 
             // Assert
             expect(mockApiService.markCommitExecuted).toHaveBeenCalledTimes(1);
-            expect(mockApiService.markCommitExecuted).toHaveBeenCalledWith(testCommit.id, 'sha789');
+            expect(mockApiService.markCommitExecuted).toHaveBeenCalledWith(testCommit.id, 'sha789', true, undefined);
         });
     });
 

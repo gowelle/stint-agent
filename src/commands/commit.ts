@@ -215,7 +215,7 @@ export function registerCommitCommands(program: Command): void {
 
                 const sha = await commitQueue.executeCommit(commit, project, (stage) => {
                     if (activeSpinner) activeSpinner.text = stage;
-                }, { push: options.push });
+                }, { push: options.push ?? false });
 
                 activeSpinner.succeed('Commit executed successfully!');
 

@@ -30,12 +30,14 @@ interface ApiCommit {
     projectId?: string;
     message: string;
     sha?: string;
-    status: 'pending' | 'executed' | 'failed';
+    status: 'pending' | 'executed' | 'failed' | 'committed_not_pushed';
     created_at?: string;
     createdAt?: string;
     executed_at?: string;
     executedAt?: string;
     error?: string;
+    push_error?: string;
+    pushError?: string;
 }
 
 class ApiServiceImpl {
@@ -248,17 +250,19 @@ class ApiServiceImpl {
      * Mark a commit as successfully executed
      * @param commitId - Commit ID
      * @param sha - Git commit SHA
+     * @param pushed - Whether the commit was pushed to remote (default: true)
+     * @param pushError - Error message if push failed
      * @returns Updated commit data
      */
-    async markCommitExecuted(commitId: string, sha: string): Promise<Commit> {
-        logger.info('api', `Marking commit ${commitId} as executed (SHA: ${sha})`);
+    async markCommitExecuted(commitId: string, sha: string, pushed = true, pushError?: string): Promise<Commit> {
+        logger.info('api', `Marking commit ${commitId} as executed (SHA: ${sha}, pushed: ${pushed})`);
 
         return this.withRetry(async () => {
             const response = await this.request<{ data: ApiCommit }>(
                 `/api/agent/commits/${commitId}/executed`,
                 {
                     method: 'POST',
-                    body: JSON.stringify({ sha }),
+                    body: JSON.stringify({ sha, pushed, push_error: pushError }),
                 }
             );
             const data = response.data;
@@ -280,6 +284,7 @@ class ApiServiceImpl {
                 createdAt,
                 executedAt,
                 error: data.error,
+                pushError: data.push_error || data.pushError,
             };
 
             logger.success('api', `Commit ${commitId} marked as executed`);

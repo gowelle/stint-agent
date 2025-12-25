@@ -33,10 +33,11 @@ export interface Commit {
     projectId: string;
     message: string;
     sha?: string;
-    status: 'pending' | 'executed' | 'failed';
+    status: 'pending' | 'executed' | 'failed' | 'committed_not_pushed';
     createdAt: string;
     executedAt?: string;
     error?: string;
+    pushError?: string;
 }
 
 export interface PendingCommit {

@@ -2,6 +2,7 @@ import { gitService } from '../services/git.js';
 import { apiService } from '../services/api.js';
 import { projectService } from '../services/project.js';
 import { logger } from '../utils/logger.js';
+import { notify } from '../utils/notify.js';
 import { PendingCommit, Project } from '../types/index.js';
 
 interface QueueItem {
@@ -103,15 +104,44 @@ class CommitQueueProcessor {
 
             logger.success('queue', `Commit created successfully: ${sha}`);
 
-            // Push to remote if requested
-            if (options?.push) {
-                onProgress?.('Pushing to remote...');
-                await gitService.push(projectPath);
-                logger.success('queue', `Pushed commit ${sha} to remote`);
+            // Always attempt to push in daemon mode
+            let pushed = false;
+            let pushError: string | undefined;
+
+            // Skip push only if explicitly disabled via options
+            const shouldPush = options?.push !== false;
+
+            if (shouldPush) {
+                try {
+                    onProgress?.('Pushing to remote...');
+                    await gitService.push(projectPath);
+                    pushed = true;
+                    logger.success('queue', `Pushed commit ${sha} to remote`);
+                } catch (error) {
+                    pushError = (error as Error).message;
+                    const isConflict = pushError.includes('rejected') ||
+                        pushError.includes('non-fast-forward') ||
+                        pushError.includes('failed to push') ||
+                        pushError.includes('Updates were rejected');
+
+                    if (isConflict) {
+                        logger.warn('queue', `Push failed due to remote conflict: ${pushError}`);
+                        notify({
+                            title: '⚠️ Push Failed - Manual Action Required',
+                            message: `Commit "${commit.message}" created but push failed.\nRun "git pull --rebase && git push" to resolve.`,
+                        });
+                    } else {
+                        logger.error('queue', `Push failed: ${pushError}`);
+                        notify({
+                            title: '❌ Push Failed',
+                            message: `Commit created but push failed: ${pushError}`,
+                        });
+                    }
+                }
             }
 
             onProgress?.('Reporting to server...');
-            await this.reportSuccess(commit.id, sha);
+            await this.reportSuccess(commit.id, sha, pushed, pushError);
 
             return sha;
         } catch (error) {
@@ -127,11 +157,16 @@ class CommitQueueProcessor {
 
     /**
      * Report successful execution to API
+     * @param commitId - Commit ID
+     * @param sha - Git commit SHA
+     * @param pushed - Whether the commit was pushed to remote
+     * @param pushError - Error message if push failed
      */
-    private async reportSuccess(commitId: string, sha: string): Promise<void> {
+    private async reportSuccess(commitId: string, sha: string, pushed = true, pushError?: string): Promise<void> {
         try {
-            await apiService.markCommitExecuted(commitId, sha);
-            logger.success('queue', `Reported commit execution to API: ${commitId} -> ${sha}`);
+            await apiService.markCommitExecuted(commitId, sha, pushed, pushError);
+            const status = pushed ? 'executed' : 'committed (push failed)';
+            logger.success('queue', `Reported commit ${status} to API: ${commitId} -> ${sha}`);
         } catch (error) {
             logger.error('queue', 'Failed to report commit success to API', error as Error);
             // Don't throw - commit was successful locally

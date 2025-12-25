@@ -323,6 +323,7 @@ class ApiServiceImpl {
                 remote_url: data.remoteUrl,
                 default_branch: data.defaultBranch,
                 current_branch: data.currentBranch,
+                branches: data.branches,
             };
 
             await this.request(`/api/agent/projects/${projectId}/sync`, {

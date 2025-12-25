@@ -5,6 +5,7 @@ import { apiService } from '../services/api.js';
 import { authService } from '../services/auth.js';
 import { websocketService } from '../services/websocket.js';
 import { logger } from '../utils/logger.js';
+import { formatApiError, isServiceUnavailable } from '../utils/api-errors.js';
 import { exec } from 'child_process';
 import { promisify } from 'util';
 import process from 'process';
@@ -54,7 +55,7 @@ export function registerDoctorCommand(program: Command): void {
                             try {
                                 const { stdout: userName } = await execAsync('git config --global user.name');
                                 const { stdout: userEmail } = await execAsync('git config --global user.email');
-                                
+
                                 if (!userName.trim() || !userEmail.trim()) {
                                     return {
                                         success: false,
@@ -94,11 +95,23 @@ export function registerDoctorCommand(program: Command): void {
                                     success: true,
                                     message: `Authenticated as ${user.email}`,
                                 };
-                            } catch {
+                            } catch (error) {
+                                // Check if it's a service issue vs auth issue
+                                if (isServiceUnavailable(error as Error)) {
+                                    const friendly = formatApiError(error as Error);
+                                    return {
+                                        success: false,
+                                        message: friendly.message,
+                                        details: [
+                                            ...friendly.details,
+                                            'Authentication check skipped due to connectivity issues.',
+                                        ],
+                                    };
+                                }
                                 return {
                                     success: false,
-                                    message: 'Authentication validation failed',
-                                    details: ['Run "stint login" to re-authenticate'],
+                                    message: 'Not authenticated',
+                                    details: ['Run "stint login" to authenticate'],
                                 };
                             }
                         },
@@ -113,10 +126,11 @@ export function registerDoctorCommand(program: Command): void {
                                     message: 'API connection successful',
                                 };
                             } catch (error) {
+                                const friendly = formatApiError(error as Error);
                                 return {
                                     success: false,
-                                    message: 'API connection failed',
-                                    details: [(error as Error).message],
+                                    message: friendly.message,
+                                    details: friendly.details,
                                 };
                             }
                         },
@@ -128,7 +142,7 @@ export function registerDoctorCommand(program: Command): void {
                                 await websocketService.connect();
                                 const isConnected = websocketService.isConnected();
                                 websocketService.disconnect(); // Clean up after test
-                                
+
                                 if (!isConnected) {
                                     return {
                                         success: false,
@@ -142,10 +156,11 @@ export function registerDoctorCommand(program: Command): void {
                                     message: 'WebSocket connection successful',
                                 };
                             } catch (error) {
+                                const friendly = formatApiError(error as Error);
                                 return {
                                     success: false,
-                                    message: 'WebSocket connection failed',
-                                    details: [(error as Error).message],
+                                    message: friendly.message,
+                                    details: friendly.details,
                                 };
                             }
                         },
@@ -154,19 +169,19 @@ export function registerDoctorCommand(program: Command): void {
 
                 // Run all checks
                 console.log(chalk.blue('\n🔍 Running environment diagnostics...\n'));
-                
+
                 for (const check of checks) {
                     spinner.text = `Checking ${check.name.toLowerCase()}...`;
-                    
+
                     try {
                         const result = await check.check();
-                        
+
                         if (result.success) {
                             console.log(`${chalk.green('✓')} ${chalk.bold(check.name)}: ${result.message}`);
                         } else {
                             hasErrors = true;
                             console.log(`${chalk.red('✖')} ${chalk.bold(check.name)}: ${result.message}`);
-                            
+
                             if (result.details) {
                                 result.details.forEach(detail => {
                                     console.log(chalk.gray(`   ${detail}`));

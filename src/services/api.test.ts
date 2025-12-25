@@ -314,6 +314,7 @@ describe('ApiService', () => {
                 remote_url: 'https://github.com/test/repo.git',
                 default_branch: 'main',
                 current_branch: 'main',
+                branches: ['main', 'develop'],
             });
         });
     });

@@ -205,7 +205,7 @@ export interface WebSocketService {
     connect(): Promise<void>;
     disconnect(): void;
     isConnected(): boolean;
-    subscribeToUserChannel(userId: string): void;
+    subscribeToUserChannel(userId: string): Promise<void>;
     onCommitApproved(handler: (commit: PendingCommit, project: Project) => void): void;
     onCommitPending(handler: (commit: PendingCommit) => void): void;
     onSuggestionCreated(handler: (suggestion: Suggestion) => void): void;

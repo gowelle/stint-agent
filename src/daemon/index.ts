@@ -43,7 +43,7 @@ export async function startDaemon(): Promise<void> {
         logger.success('daemon', 'WebSocket connected');
 
         // Subscribe to user channel
-        websocketService.subscribeToUserChannel(user.id);
+        await websocketService.subscribeToUserChannel(user.id);
 
         // Register event handlers
         websocketService.onCommitApproved((commit, project) => {

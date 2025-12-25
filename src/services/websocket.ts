@@ -7,6 +7,7 @@ import { PendingCommit, Project, Suggestion } from '../types/index.js';
 class WebSocketServiceImpl {
     private ws: WebSocket | null = null;
     private userId: string | null = null;
+    private socketId: string | null = null;
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 10;
     private reconnectTimer: NodeJS.Timeout | null = null;
@@ -113,7 +114,7 @@ class WebSocketServiceImpl {
      * Subscribe to user-specific channel for real-time updates
      * @param userId - User ID to subscribe to
      */
-    subscribeToUserChannel(userId: string): void {
+    async subscribeToUserChannel(userId: string): Promise<void> {
         this.userId = userId;
 
         if (!this.isConnected()) {
@@ -121,15 +122,45 @@ class WebSocketServiceImpl {
             return;
         }
 
+        if (!this.socketId) {
+            logger.warn('websocket', 'Cannot subscribe: socket_id not available yet');
+            return;
+        }
+
         const channel = `private-user.${userId}`;
         logger.info('websocket', `Subscribing to channel: ${channel}`);
 
-        this.sendMessage({
-            event: 'pusher:subscribe',
-            data: {
-                channel,
-            },
+        try {
+            // Get authentication signature from Laravel backend
+            const auth = await this.getChannelAuth(channel, this.socketId);
+
+            this.sendMessage({
+                event: 'pusher:subscribe',
+                data: {
+                    channel,
+                    auth,
+                },
+            });
+        } catch (error) {
+            logger.error('websocket', 'Failed to authenticate channel subscription', error as Error);
+        }
+    }
+
+    /**
+     * Get authentication signature for private channel from Laravel backend
+     */
+    private async getChannelAuth(channel: string, socketId: string): Promise<string> {
+        const { apiService } = await import('./api.js');
+
+        const response = await apiService.request<{ auth: string }>('/broadcasting/auth', {
+            method: 'POST',
+            body: JSON.stringify({
+                socket_id: socketId,
+                channel_name: channel,
+            }),
         });
+
+        return response.auth;
     }
 
     /**
@@ -181,12 +212,44 @@ class WebSocketServiceImpl {
 
             // Handle Pusher protocol messages
             if (message.event === 'pusher:connection_established') {
-                logger.success('websocket', 'Connection established');
+                try {
+                    const connectionData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+                    this.socketId = connectionData.socket_id;
+                    logger.success('websocket', `Connection established (socket_id: ${this.socketId})`);
+                } catch (error) {
+                    logger.success('websocket', 'Connection established');
+                }
                 return;
             }
 
             if (message.event === 'pusher_internal:subscription_succeeded') {
                 logger.success('websocket', `Subscribed to channel: ${message.channel}`);
+                return;
+            }
+
+            if (message.event === 'pusher:error') {
+                try {
+                    const errorData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
+                    const errorCode = errorData.code;
+                    const errorMessage = errorData.message;
+
+                    logger.error('websocket', `WebSocket error (${errorCode}): ${errorMessage}`);
+
+                    // Handle specific error codes
+                    if (errorCode === 4001) {
+                        logger.error('websocket', 'Application does not exist - check Reverb app key configuration');
+                    } else if (errorCode === 4009) {
+                        logger.error('websocket', 'Connection is unauthorized - authentication token may be invalid or expired');
+                        // Notify user about authentication issue
+                        const { notify } = await import('../utils/notify.js');
+                        notify({
+                            title: 'Stint Agent - WebSocket Error',
+                            message: 'Connection is unauthorized. Please try restarting the daemon or running "stint login" again.',
+                        });
+                    }
+                } catch (parseError) {
+                    logger.error('websocket', `WebSocket error: ${JSON.stringify(message.data)}`);
+                }
                 return;
             }
 
@@ -263,7 +326,7 @@ class WebSocketServiceImpl {
 
                     // Re-subscribe to user channel if we were subscribed
                     if (this.userId) {
-                        this.subscribeToUserChannel(this.userId);
+                        await this.subscribeToUserChannel(this.userId);
                     }
                 } catch (error) {
                     logger.error('websocket', 'Reconnection failed', error as Error);

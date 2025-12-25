@@ -127,6 +127,10 @@ export async function startDaemon(): Promise<void> {
         websocketService.onSyncRequested(async (projectId) => {
             logger.info('daemon', `Server requested sync for project: ${projectId}`);
             try {
+                notify({
+                    title: 'Sync Requested',
+                    message: `Syncing project ${projectId}...`,
+                });
                 await fileWatcher.syncProjectById(projectId);
             } catch (error) {
                 logger.error('daemon', `Failed to sync project ${projectId}`, error as Error);

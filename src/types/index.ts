@@ -103,6 +103,9 @@ export interface Config {
     machineId: string;
     machineName: string;
     projects: Record<string, LinkedProject>;
+    notifications?: {
+        enabled: boolean;
+    };
 }
 
 // WebSocket Event Types

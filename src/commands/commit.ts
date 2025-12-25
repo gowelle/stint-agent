@@ -120,11 +120,19 @@ export function registerCommitCommands(program: Command): void {
                 let status = await gitService.getStatus(cwd);
 
                 // Handle auto-staging if requested
-                if (options.autoStage && commit.files && commit.files.length > 0) {
-                    activeSpinner.text = `Staging ${commit.files.length} files...`;
-                    await gitService.stageFiles(cwd, commit.files);
+                if (options.autoStage) {
+                    if (commit.files && commit.files.length > 0) {
+                        // Stage specific files
+                        activeSpinner.text = `Staging ${commit.files.length} files...`;
+                        await gitService.stageFiles(cwd, commit.files);
+                        logger.info('commit', `Auto-staged files: ${commit.files.join(', ')}`);
+                    } else {
+                        // Stage all changes (files is undefined or empty)
+                        activeSpinner.text = 'Staging all changes...';
+                        await gitService.stageAll(cwd);
+                        logger.info('commit', 'Auto-staged all changes');
+                    }
                     status = await gitService.getStatus(cwd);
-                    logger.info('commit', `Auto-staged files: ${commit.files.join(', ')}`);
                 }
 
                 // Check for staged changes (after potential auto-staging)
@@ -135,7 +143,7 @@ export function registerCommitCommands(program: Command): void {
                         console.log(chalk.gray('Expected files: ' + commit.files.join(', ')));
                         console.log(chalk.gray('\nUse --auto-stage to automatically stage expected files.'));
                     } else {
-                        console.log(chalk.gray('Please stage the files you want to commit first.'));
+                        console.log(chalk.gray('Use --auto-stage to automatically stage all changes, or stage files manually:'));
                         console.log(chalk.gray('  git add <files>\n'));
                     }
                     process.exit(1);

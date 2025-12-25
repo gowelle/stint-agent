@@ -125,6 +125,26 @@ stint status
 # Now commits approved in the web app will execute automatically!
 ```
 
+## Configuration
+
+### Desktop Notifications
+
+The daemon sends desktop notifications for important events (commit approved, new pending commits, project updates). Notifications are **enabled by default**.
+
+**Disable notifications:**
+
+```bash
+stint config set notifications.enabled false
+```
+
+**Enable notifications:**
+
+```bash
+stint config set notifications.enabled true
+```
+
+> **Note:** Events are still logged even when notifications are disabled.
+
 ## Troubleshooting
 
 For comprehensive troubleshooting help, see the **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)**.

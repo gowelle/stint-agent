@@ -49,12 +49,31 @@ export async function startDaemon(): Promise<void> {
         websocketService.onCommitApproved((commit, project) => {
             logger.info('daemon', `Commit approved: ${commit.id} for project ${project.name}`);
 
+            notify({
+                title: 'Commit Approved',
+                message: `${commit.message}\nProject: ${project.name}`,
+            });
+
             // Add to queue for processing
             commitQueue.addToQueue(commit, project);
         });
 
+        websocketService.onCommitPending((commit) => {
+            logger.info('daemon', `Commit pending: ${commit.id}`);
+
+            notify({
+                title: 'New Pending Commit',
+                message: commit.message,
+            });
+        });
+
         websocketService.onProjectUpdated((project) => {
             logger.info('daemon', `Project updated: ${project.id} - ${project.name}`);
+
+            notify({
+                title: 'Project Updated',
+                message: project.name,
+            });
         });
 
         websocketService.onDisconnect(() => {

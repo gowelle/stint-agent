@@ -25,6 +25,9 @@ const DEFAULT_CONFIG: Partial<Config> = {
     wsUrl: 'wss://stint.codes/reverb',
     reverbAppKey: 'wtn6tu6lirfv6yflujk7',
     projects: {},
+    notifications: {
+        enabled: true,
+    },
 };
 
 class ConfigManager {
@@ -177,6 +180,16 @@ class ConfigManager {
 
     setReverbAppKey(reverbAppKey: string): void {
         this.conf.set('reverbAppKey', reverbAppKey);
+    }
+
+    // Notification management
+    areNotificationsEnabled(): boolean {
+        const notifConfig = this.conf.get('notifications');
+        return notifConfig?.enabled ?? true; // Default to enabled
+    }
+
+    setNotificationsEnabled(enabled: boolean): void {
+        this.conf.set('notifications', { enabled });
     }
 }
 

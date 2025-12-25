@@ -152,7 +152,7 @@ class WebSocketServiceImpl {
     private async getChannelAuth(channel: string, socketId: string): Promise<string> {
         const { apiService } = await import('./api.js');
 
-        const response = await apiService.request<{ auth: string }>('/broadcasting/auth', {
+        const response = await apiService.request<{ auth: string }>('/api/broadcasting/auth', {
             method: 'POST',
             body: JSON.stringify({
                 socket_id: socketId,

@@ -106,6 +106,8 @@ export interface Config {
     notifications?: {
         enabled: boolean;
     };
+    autoCheckUpdates?: boolean;
+    lastUpdateCheck?: string | null;
 }
 
 // WebSocket Event Types

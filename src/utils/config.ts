@@ -28,6 +28,8 @@ const DEFAULT_CONFIG: Partial<Config> = {
     notifications: {
         enabled: true,
     },
+    autoCheckUpdates: true,
+    lastUpdateCheck: null,
 };
 
 class ConfigManager {

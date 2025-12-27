@@ -1,17 +1,68 @@
 import { authService } from '../services/auth.js';
 import { apiService } from '../services/api.js';
 import { websocketService } from '../services/websocket.js';
+import { versionService } from '../services/version.js';
 import { commitQueue } from './queue.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
 import { FileWatcher } from './watcher.js';
 import { notify } from '../utils/notify.js';
 import { projectService } from '../services/project.js';
+import { config } from '../utils/config.js';
 
 let heartbeatInterval: NodeJS.Timeout | null = null;
 let isShuttingDown = false;
 let shutdownReason: string | undefined;
 const fileWatcher = new FileWatcher();
+
+/**
+ * Check for updates if enabled and cooldown period has passed
+ */
+async function checkForUpdatesIfEnabled(): Promise<void> {
+    try {
+        // Check if auto-check is enabled
+        const autoCheck = config.get('autoCheckUpdates');
+        if (!autoCheck) {
+            logger.debug('daemon', 'Automatic update checks disabled');
+            return;
+        }
+
+        // Check cooldown period (24 hours)
+        const lastCheck = config.get('lastUpdateCheck');
+        if (lastCheck) {
+            const lastCheckTime = new Date(lastCheck).getTime();
+            const now = Date.now();
+            const cooldownMs = 24 * 60 * 60 * 1000; // 24 hours
+
+            if (now - lastCheckTime < cooldownMs) {
+                logger.debug('daemon', 'Update check cooldown active');
+                return;
+            }
+        }
+
+        // Check for updates
+        logger.info('daemon', 'Checking for updates...');
+        const versionInfo = await versionService.checkForUpdates('stable');
+
+        // Update last check time
+        config.set('lastUpdateCheck', new Date().toISOString());
+
+        if (versionInfo.hasUpdate) {
+            logger.info('daemon', `Update available: ${versionInfo.current} → ${versionInfo.latest}`);
+
+            // Send desktop notification
+            notify({
+                title: 'Stint Agent Update Available',
+                message: `Version ${versionInfo.latest} is available. Run "stint update" to install.`,
+            });
+        } else {
+            logger.debug('daemon', 'No updates available');
+        }
+    } catch (error) {
+        // Non-critical, just log and continue
+        logger.debug('daemon', 'Failed to check for updates', error as Error);
+    }
+}
 
 /**
  * Start the daemon process
@@ -173,6 +224,9 @@ export async function startDaemon(): Promise<void> {
         }
 
         logger.success('daemon', 'Daemon started successfully');
+
+        // Check for updates if enabled (with cooldown)
+        await checkForUpdatesIfEnabled();
 
         // Keep the process alive
         await new Promise(() => { }); // Infinite promise

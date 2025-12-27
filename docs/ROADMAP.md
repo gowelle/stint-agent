@@ -44,16 +44,31 @@ The `stint-agent` is a critical component of the Stint ecosystem, serving as the
 *   [x] Add resource usage monitoring (CPU/RAM) to the daemon status:
     - Cross-platform process stats (Linux, macOS, Windows)
     - Memory, CPU, threads, and uptime display
+*   [x] Add WebSocket connection status to `stint daemon status`:
+    - Real-time connection state (Connected/Disconnected)
+    - Subscribed channel display
+    - Last event received and timestamp
 
 ### Update Mechanism
 *   [ ] Fully test the self-update mechanism across all platforms.
 *   [ ] Implement release channels (stable vs. beta/insider) for the CLI.
 
+### Real-time Communication
+*   [x] Migrate to Laravel Echo with Sanctum authentication
+    - Custom authorizer for private channel auth via Bearer token
+    - Pusher-js client configured for Reverb broadcaster
+    - Removed legacy polling fallback
+*   [x] Desktop notifications for all key events:
+    - Commit approved/pending notifications
+    - Project updated notifications
+    - Sync requested notifications
+
 ### Test Coverage Improvements
 *   [x] Added `doctor.test.ts` - 14 tests for doctor command
 *   [x] Added `monitor.test.ts` - 6 tests for process monitoring
 *   [x] Fixed `daemon.test.ts` - 7 tests for daemon commands
-*   [x] Total: 176 tests passing across 16 test files
+*   [x] Updated `websocket.test.ts` - 15 tests for Laravel Echo integration
+*   [x] Total: 193 tests passing across 17 test files
 
 ---
 
@@ -95,3 +110,4 @@ The `stint-agent` is a critical component of the Stint ecosystem, serving as the
 | v1.0.0  | 2024-12     | Initial release, core functionality |
 | v1.1.0  | 2024-12     | Stability release, comprehensive testing |
 | v1.2.0  | 2024-12     | Experience release, doctor command, enhanced daemon |
+| v1.2.18 | 2024-12     | Laravel Echo with Sanctum auth, WebSocket status command |

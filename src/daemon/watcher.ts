@@ -210,7 +210,7 @@ export class FileWatcher {
                 const projects = await apiService.getLinkedProjects();
                 const p = projects.find(proj => proj.id === projectId);
                 if (p) projectName = p.name;
-            } catch (e) { /* ignore */ }
+            } catch (_e) { /* ignore */ }
 
             notify({
                 title: 'Sync Complete',

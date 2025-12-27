@@ -1,6 +1,5 @@
 import os from 'os';
 import { readFileSync } from 'fs';
-import { logger } from './logger.js';
 import { execSync } from 'child_process';
 
 interface ProcessStats {
@@ -14,7 +13,7 @@ interface ProcessStats {
 /**
  * Get process statistics (CPU, memory, etc.)
  * @param pid - Process ID to monitor
- * @returns Process statistics
+ * @returns Process statistics or null if unavailable
  */
 export function getProcessStats(pid: number): ProcessStats | null {
     try {
@@ -29,9 +28,9 @@ export function getProcessStats(pid: number): ProcessStats | null {
             return getWindowsStats(pid);
         }
 
-        throw new Error(`Unsupported platform: ${platform}`);
-    } catch (error) {
-        logger.error('monitor', `Failed to get process stats for PID ${pid}`, error as Error);
+        return null; // Unsupported platform
+    } catch {
+        // Stats may be temporarily unavailable (e.g., Windows perf counters not yet registered)
         return null;
     }
 }
@@ -117,7 +116,7 @@ function parseElapsedTime(etime: string): number {
     const parts = etime.split('-');
     const timeStr = parts[parts.length - 1];
     const timeParts = timeStr.split(':');
-    
+
     let seconds = 0;
     if (timeParts.length === 3) {
         seconds = parseInt(timeParts[0]) * 3600 + parseInt(timeParts[1]) * 60 + parseInt(timeParts[2]);

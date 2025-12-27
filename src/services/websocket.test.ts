@@ -1,90 +1,137 @@
 import { describe, it, expect, vi, Mock, beforeEach, afterEach } from 'vitest';
 
-// Define the mock implementation outside the mock factory so we can reference it
-const mockOn = vi.fn();
-const mockSend = vi.fn();
-const mockClose = vi.fn();
-const mockTerminate = vi.fn();
+// Connection handlers storage - these need to be module-scoped for the mock factories
+const connectionHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+const channelHandlers: Record<string, Record<string, (...args: unknown[]) => void>> = {};
+let connectionState = 'initialized';
 
-// Create a map to store event handlers so we can trigger them in tests
-let eventHandlers: Record<string, Array<(...args: unknown[]) => void>> = {};
+// Track echo instance for assertions
+let currentEchoInstance: {
+    private: Mock;
+    leave: Mock;
+    disconnect: Mock;
+} | null = null;
 
-// Mock the ws module
-vi.mock('ws', () => {
+// Mock the laravel-echo module - these need to be self-contained
+vi.mock('laravel-echo', () => {
     return {
-        default: class MockWebSocket {
-            static OPEN = 1;
-            static CLOSED = 3;
-            readyState = 1;
+        default: class MockEcho {
+            connector = {
+                pusher: {
+                    connection: {
+                        get state() { return connectionState; },
+                        bind: (event: string, handler: (...args: unknown[]) => void) => {
+                            if (!connectionHandlers[event]) {
+                                connectionHandlers[event] = [];
+                            }
+                            connectionHandlers[event].push(handler);
+                        },
+                    },
+                },
+            };
+            private = vi.fn((channel: string) => {
+                channelHandlers[channel] = {};
+                return {
+                    listen: vi.fn(function (this: { listen: Mock }, event: string, handler: (...args: unknown[]) => void) {
+                        channelHandlers[channel][event] = handler;
+                        return this;
+                    }),
+                };
+            });
+            leave = vi.fn();
+            disconnect = vi.fn();
 
-            constructor(_url: string) {
-                // reset handlers on new connection
-                // but keep the reference strictly for verification if needed
-            }
-
-            on(event: string, handler: (...args: unknown[]) => void) {
-                if (!eventHandlers[event]) {
-                    eventHandlers[event] = [];
-                }
-                eventHandlers[event].push(handler);
-                mockOn(event, handler);
-            }
-
-            send(data: unknown) {
-                mockSend(data);
-            }
-
-            close() {
-                this.readyState = 3; // CLOSED
-                mockClose();
-                // Trigger close event
-                if (eventHandlers['close']) {
-                    eventHandlers['close'].forEach(h => h());
-                }
-            }
-
-            terminate() {
-                mockTerminate();
+            constructor() {
+                currentEchoInstance = {
+                    private: this.private,
+                    leave: this.leave,
+                    disconnect: this.disconnect,
+                };
             }
         },
-        WebSocket: class MockWebSocket {
-            static OPEN = 1;
-            static CLOSED = 3;
-        }
     };
 });
 
-// Mock dependencies
+// Mock pusher-js - just needs to be a valid constructor
+vi.mock('pusher-js', () => {
+    return {
+        default: class MockPusher {
+            connection = { state: 'initialized' };
+        },
+    };
+});
+
+// Mock dependencies - return mock functions that we can control
+const mockGetApiUrl = vi.fn(() => 'https://test.stint.app');
+const mockGetReverbAppKey = vi.fn(() => 'test-reverb-key');
+const mockGetEnvironment = vi.fn(() => 'production');
+const mockGetToken = vi.fn();
+
 vi.mock('../utils/config.js', () => ({
     config: {
-        getWsUrl: vi.fn(() => 'wss://test.stint.app/app/test-key'),
+        getApiUrl: mockGetApiUrl,
+        getReverbAppKey: mockGetReverbAppKey,
+        getEnvironment: mockGetEnvironment,
     },
 }));
 
 vi.mock('./auth.js', () => ({
     authService: {
-        getToken: vi.fn(),
+        getToken: mockGetToken,
     },
 }));
+
+const mockLoggerInfo = vi.fn();
+const mockLoggerWarn = vi.fn();
+const mockLoggerError = vi.fn();
+const mockLoggerDebug = vi.fn();
+const mockLoggerSuccess = vi.fn();
 
 vi.mock('../utils/logger.js', () => ({
     logger: {
-        info: vi.fn(),
-        warn: vi.fn(),
-        error: vi.fn(),
-        debug: vi.fn(),
-        success: vi.fn(),
+        info: mockLoggerInfo,
+        warn: mockLoggerWarn,
+        error: mockLoggerError,
+        debug: mockLoggerDebug,
+        success: mockLoggerSuccess,
     },
 }));
 
-describe('WebSocketService', () => {
-    let wsModule: typeof import('ws');
+// Helper to reset all state
+function resetState() {
+    Object.keys(connectionHandlers).forEach(k => delete connectionHandlers[k]);
+    Object.keys(channelHandlers).forEach(k => delete channelHandlers[k]);
+    connectionState = 'initialized';
+    currentEchoInstance = null;
 
+    // Reset mock return values to defaults
+    mockGetApiUrl.mockReturnValue('https://test.stint.app');
+    mockGetReverbAppKey.mockReturnValue('test-reverb-key');
+    mockGetEnvironment.mockReturnValue('production');
+    mockGetToken.mockReset();
+}
+
+// Helper to simulate connection
+function simulateConnected() {
+    connectionState = 'connected';
+    if (connectionHandlers['connected']) {
+        connectionHandlers['connected'].forEach(h => h());
+    }
+}
+
+// Helper to trigger channel events
+function triggerChannelEvent(channel: string, event: string, payload: unknown) {
+    const handler = channelHandlers[channel]?.[event];
+    if (handler) {
+        handler(payload);
+    }
+}
+
+describe('WebSocketService', () => {
     beforeEach(async () => {
         vi.resetModules();
         vi.clearAllMocks();
-        eventHandlers = {}; // Reset event handlers
-        wsModule = await import('./websocket.js');
+        resetState();
     });
 
     afterEach(() => {
@@ -92,244 +139,206 @@ describe('WebSocketService', () => {
     });
 
     describe('connection', () => {
-        it('should successfully connect and handle open event', async () => {
-            const authModule = await import('./auth.js');
-            (authModule.authService.getToken as Mock).mockResolvedValue('test-token');
+        it('should successfully connect and handle connected event', async () => {
+            mockGetToken.mockResolvedValue('test-token');
 
+            const wsModule = await import('./websocket.js');
             const connectPromise = wsModule.websocketService.connect();
 
-            // Simulate 'open' event
-            // We need to wait a tick for the constructor code to run and register handlers
-            await new Promise(resolve => setTimeout(resolve, 0));
+            // Wait for Echo initialization
+            await new Promise(resolve => setTimeout(resolve, 10));
 
-            if (eventHandlers['open']) {
-                eventHandlers['open'].forEach(h => h());
-            }
+            // Simulate 'connected' event
+            simulateConnected();
 
             await expect(connectPromise).resolves.toBeUndefined();
             expect(wsModule.websocketService.isConnected()).toBe(true);
         });
 
         it('should handle connection failure', async () => {
-            const authModule = await import('./auth.js');
-            (authModule.authService.getToken as Mock).mockResolvedValue('test-token');
+            mockGetToken.mockResolvedValue('test-token');
 
+            const wsModule = await import('./websocket.js');
             const connectPromise = wsModule.websocketService.connect();
 
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setTimeout(resolve, 10));
 
-            const error = new Error('Connection failed');
-            if (eventHandlers['error']) {
-                eventHandlers['error'].forEach(h => h(error));
+            // Simulate 'failed' event
+            if (connectionHandlers['failed']) {
+                connectionHandlers['failed'].forEach(h => h());
             }
 
-            await expect(connectPromise).rejects.toThrow('Connection failed');
+            await expect(connectPromise).rejects.toThrow('WebSocket connection failed');
         });
 
         it('should throw error if no token available', async () => {
-            const authModule = await import('./auth.js');
-            (authModule.authService.getToken as Mock).mockResolvedValue(null);
+            mockGetToken.mockResolvedValue(null);
 
+            const wsModule = await import('./websocket.js');
             await expect(wsModule.websocketService.connect()).rejects.toThrow('No authentication token available');
+        });
+
+        it('should throw error if reverb key not configured', async () => {
+            mockGetToken.mockResolvedValue('test-token');
+            mockGetReverbAppKey.mockReturnValue(undefined);
+
+            const wsModule = await import('./websocket.js');
+            await expect(wsModule.websocketService.connect()).rejects.toThrow('Reverb app key not configured');
         });
     });
 
     describe('message handling', () => {
-        beforeEach(async () => {
-            const authModule = await import('./auth.js');
-            (authModule.authService.getToken as Mock).mockResolvedValue('test-token');
-            const connectPromise = wsModule.websocketService.connect();
-            await new Promise(resolve => setTimeout(resolve, 0));
-            if (eventHandlers['open']) eventHandlers['open'].forEach(h => h());
-            await connectPromise;
-        });
+        const setupConnection = async () => {
+            mockGetToken.mockResolvedValue('test-token');
 
-        const simulateMessage = (data: unknown) => {
-            if (eventHandlers['message']) {
-                eventHandlers['message'].forEach(h => h(Buffer.from(JSON.stringify(data))));
-            }
+            const wsModule = await import('./websocket.js');
+            const connectPromise = wsModule.websocketService.connect();
+            await new Promise(resolve => setTimeout(resolve, 10));
+            simulateConnected();
+            await connectPromise;
+            return wsModule;
         };
 
-        it('should handle pusher:connection_established', async () => {
-            const loggerModule = await import('../utils/logger.js');
-            simulateMessage({ event: 'pusher:connection_established' });
-            expect(loggerModule.logger.success).toHaveBeenCalledWith('websocket', 'Connection established');
-        });
-
-        it('should handle commit.approved event', () => {
+        it('should handle commit.approved event', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onCommitApproved(handler);
 
-            // Laravel sends { pendingCommit } with project relationship loaded
-            const payload = {
-                event: 'commit.approved',
-                data: {
-                    pendingCommit: { id: '123', project: { id: 'prj_1' } }
-                }
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
 
-            expect(handler).toHaveBeenCalledWith(payload.data.pendingCommit, payload.data.pendingCommit.project);
+            // Simulate event from Laravel
+            const payload = { pendingCommit: { id: '123', project: { id: 'prj_1' } } };
+            triggerChannelEvent('user.user-123', '.commit.approved', payload);
+
+            expect(handler).toHaveBeenCalledWith(payload.pendingCommit, payload.pendingCommit.project);
         });
 
-        it('should handle commit.pending event', () => {
+        it('should handle commit.pending event', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onCommitPending(handler);
 
-            const payload = {
-                event: 'commit.pending',
-                data: {
-                    pendingCommit: { id: '456' }
-                }
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
 
-            expect(handler).toHaveBeenCalledWith(payload.data.pendingCommit);
+            const payload = { pendingCommit: { id: '456' } };
+            triggerChannelEvent('user.user-123', '.commit.pending', payload);
+
+            expect(handler).toHaveBeenCalledWith(payload.pendingCommit);
         });
 
-        it('should handle suggestion.created event', () => {
+        it('should handle suggestion.created event', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onSuggestionCreated(handler);
 
-            const payload = {
-                event: 'suggestion.created',
-                data: {
-                    suggestion: { id: 'sugg_1' }
-                }
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
 
-            expect(handler).toHaveBeenCalledWith(payload.data.suggestion);
+            const payload = { suggestion: { id: 'sugg_1' } };
+            triggerChannelEvent('user.user-123', '.suggestion.created', payload);
+
+            expect(handler).toHaveBeenCalledWith(payload.suggestion);
         });
 
-        it('should handle project.updated event', () => {
+        it('should handle project.updated event', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onProjectUpdated(handler);
 
-            const payload = {
-                event: 'project.updated',
-                data: {
-                    project: { id: 'prj_updated' }
-                }
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
 
-            expect(handler).toHaveBeenCalledWith(payload.data.project);
+            const payload = { project: { id: 'prj_updated' } };
+            triggerChannelEvent('user.user-123', '.project.updated', payload);
+
+            expect(handler).toHaveBeenCalledWith(payload.project);
         });
 
-        it('should handle sync.requested event', () => {
+        it('should handle sync.requested event', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onSyncRequested(handler);
 
-            // Laravel sends { project } - handler extracts project.id
-            const payload = {
-                event: 'sync.requested',
-                data: {
-                    project: { id: 'prj_sync' }
-                }
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
+
+            const payload = { project: { id: 'prj_sync' } };
+            triggerChannelEvent('user.user-123', '.sync.requested', payload);
 
             expect(handler).toHaveBeenCalledWith('prj_sync');
         });
 
-        it('should handle agent.disconnected event', () => {
+        it('should handle agent.disconnected event', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onAgentDisconnected(handler);
 
-            const payload = {
-                event: 'agent.disconnected',
-                data: {
-                    reason: 'Too many connections'
-                }
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
+
+            const payload = { reason: 'Too many connections' };
+            triggerChannelEvent('user.user-123', '.agent.disconnected', payload);
 
             expect(handler).toHaveBeenCalledWith('Too many connections');
         });
 
-        it('should handle agent.disconnected event with default reason', () => {
+        it('should handle agent.disconnected event with default reason', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onAgentDisconnected(handler);
 
-            const payload = {
-                event: 'agent.disconnected',
-                data: {}
-            };
-            simulateMessage(payload);
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
+
+            const payload = {};
+            triggerChannelEvent('user.user-123', '.agent.disconnected', payload);
 
             expect(handler).toHaveBeenCalledWith('Server requested disconnect');
-        });
-
-        it('should log error on invalid message format', async () => {
-            const loggerModule = await import('../utils/logger.js');
-            if (eventHandlers['message']) {
-                eventHandlers['message'].forEach(h => h(Buffer.from('invalid-json')));
-            }
-            expect(loggerModule.logger.error).toHaveBeenCalledWith('websocket', 'Failed to parse message', expect.any(Error));
         });
     });
 
     describe('subscription and disconnect', () => {
-        beforeEach(async () => {
-            const authModule = await import('./auth.js');
-            (authModule.authService.getToken as Mock).mockResolvedValue('test-token');
+        const setupConnection = async () => {
+            mockGetToken.mockResolvedValue('test-token');
+
+            const wsModule = await import('./websocket.js');
             const connectPromise = wsModule.websocketService.connect();
-            await new Promise(resolve => setTimeout(resolve, 0));
-            if (eventHandlers['open']) eventHandlers['open'].forEach(h => h());
+            await new Promise(resolve => setTimeout(resolve, 10));
+            simulateConnected();
             await connectPromise;
-        });
+            return wsModule;
+        };
 
-        it('should subscribe to user channel', () => {
-            console.log('Is connected?', wsModule.websocketService.isConnected());
-            mockSend.mockClear();
-            wsModule.websocketService.subscribeToUserChannel('user-123');
+        it('should subscribe to user private channel', async () => {
+            const wsModule = await setupConnection();
 
-            const lastCallArgs = mockSend.mock.lastCall;
-            expect(lastCallArgs).toBeTruthy();
-            const message = JSON.parse(lastCallArgs[0]);
-            expect(message).toEqual(expect.objectContaining({
-                event: 'pusher:subscribe',
-                data: { channel: 'private-user.user-123' }
-            }));
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
+
+            expect(currentEchoInstance?.private).toHaveBeenCalledWith('user.user-123');
         });
 
         it('should not subscribe if not connected', async () => {
-            const loggerModule = await import('../utils/logger.js');
-            wsModule.websocketService.disconnect(); // manually disconnect first
-            mockSend.mockClear();
+            const wsModule = await import('./websocket.js');
 
-            wsModule.websocketService.subscribeToUserChannel('user-123');
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
 
-            expect(mockSend).not.toHaveBeenCalled();
-            expect(loggerModule.logger.warn).toHaveBeenCalledWith('websocket', 'Cannot subscribe: not connected');
+            expect(mockLoggerWarn).toHaveBeenCalledWith('websocket', 'Cannot subscribe: not connected');
         });
 
-        it('should disconnect manualy and unsubscribe', () => {
-            // First subscribe so we have a userId set
-            wsModule.websocketService.subscribeToUserChannel('user-123');
-            mockSend.mockClear();
+        it('should disconnect and leave channel', async () => {
+            const wsModule = await setupConnection();
 
+            await wsModule.websocketService.subscribeToUserChannel('user-123');
             wsModule.websocketService.disconnect();
 
-            // Verify unsubscribe message sent
-            const lastCallArgs = mockSend.mock.lastCall;
-            expect(lastCallArgs).toBeTruthy();
-            const message = JSON.parse(lastCallArgs[0]);
-            expect(message).toEqual(expect.objectContaining({
-                event: 'pusher:unsubscribe',
-                data: { channel: 'private-user.user-123' }
-            }));
-
-            expect(mockClose).toHaveBeenCalled();
-            expect(wsModule.websocketService.isConnected()).toBe(false);
+            expect(currentEchoInstance?.leave).toHaveBeenCalledWith('user.user-123');
+            expect(currentEchoInstance?.disconnect).toHaveBeenCalled();
         });
 
-        it('should handle onDisconnect handler', () => {
+        it('should handle onDisconnect handler', async () => {
+            const wsModule = await setupConnection();
             const handler = vi.fn();
             wsModule.websocketService.onDisconnect(handler);
 
-            wsModule.websocketService.disconnect();
+            // Simulate disconnection event
+            if (connectionHandlers['disconnected']) {
+                connectionHandlers['disconnected'].forEach(h => h());
+            }
 
             expect(handler).toHaveBeenCalled();
         });

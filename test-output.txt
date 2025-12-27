@@ -1,0 +1,217 @@
+
+ RUN  v4.0.16 C:/Users/John Gowelle/Apps/stint-agent
+
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 1)
+(Use `node --trace-warnings ...` to show where the warning was created)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 2)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 3)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 4)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 5)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 6)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 7)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 8)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 9)
+(node:10260) PromiseRejectionHandledWarning: Promise rejection was handled asynchronously (rejection id: 10)
+ Γ¥» src/services/websocket.test.ts (15 tests | 10 failed) 338ms
+       Γ£ô should successfully connect and handle connected event 156ms
+       Γ£ô should handle connection failure 19ms
+       Γ£ô should throw error if no token available 1ms
+       Γ£ô should throw error if reverb key not configured 1ms
+       ├ù should handle commit.approved event 12ms
+       ├ù should handle commit.pending event 16ms
+       ├ù should handle suggestion.created event 18ms
+       ├ù should handle project.updated event 15ms
+       ├ù should handle sync.requested event 17ms
+       ├ù should handle agent.disconnected event 15ms
+       ├ù should handle agent.disconnected event with default reason 20ms
+       ├ù should subscribe to user private channel 15ms
+       Γ£ô should not subscribe if not connected 2ms
+       ├ù should disconnect and leave channel 13ms
+       ├ù should handle onDisconnect handler 16ms
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Failed Tests 10 ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle commit.approved event
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle commit.pending event
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle suggestion.created event
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle project.updated event
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle sync.requested event
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle agent.disconnected event
+ FAIL  src/services/websocket.test.ts > WebSocketService > message handling > should handle agent.disconnected event with default reason
+ FAIL  src/services/websocket.test.ts > WebSocketService > subscription and disconnect > should subscribe to user private channel
+ FAIL  src/services/websocket.test.ts > WebSocketService > subscription and disconnect > should disconnect and leave channel
+ FAIL  src/services/websocket.test.ts > WebSocketService > subscription and disconnect > should handle onDisconnect handler
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»[1/10]ΓÄ»
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Errors ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+Vitest caught 10 unhandled errors during the test run.
+This might cause false positive tests. Resolve unhandled errors to make sure your tests are not affected.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle commit.approved event". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle commit.pending event". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle suggestion.created event". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle project.updated event". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle sync.requested event". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle agent.disconnected event". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle agent.disconnected event with default reason". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should subscribe to user private channel". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should disconnect and leave channel". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+
+ΓÄ»ΓÄ»ΓÄ»ΓÄ» Unhandled Rejection ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+Error: Reverb app key not configured
+ Γ¥» WebSocketServiceImpl.connect src/services/websocket.ts:38:23
+     36|             const reverbAppKey = config.getReverbAppKey();
+     37|             if (!reverbAppKey) {
+     38|                 throw new Error('Reverb app key not configured');
+       |                       ^
+     39|             }
+     40| 
+
+This error originated in "src/services/websocket.test.ts" test file. It doesn't mean the error was thrown inside the file itself, but while it was running.
+The latest test that might've caused the error is "should handle onDisconnect handler". It might mean one of the following:
+- The error was thrown, while Vitest was running this test.
+- If the error occurred after the test had been completed, this was the last documented test before it was thrown.
+ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»ΓÄ»
+
+
+ Test Files  1 failed (1)
+      Tests  10 failed | 5 passed (15)
+     Errors  10 errors
+   Start at  10:42:44
+   Duration  631ms (transform 133ms, setup 0ms, import 125ms, tests 338ms, environment 0ms)
+

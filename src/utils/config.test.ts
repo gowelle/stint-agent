@@ -3,21 +3,26 @@ import { config } from './config.js';
 
 describe('Config', () => {
     const originalEnv = process.env;
+    let originalReverbAppKey: string | undefined;
 
     beforeEach(() => {
         vi.resetModules();
         process.env = { ...originalEnv };
-        // NOTE: Do NOT call config.clear() here - it would wipe the real user config file!
-        // These tests only modify process.env and specific config keys, then restore them in afterEach.
+        // Save original reverbAppKey to restore after test
+        originalReverbAppKey = config.getReverbAppKey();
     });
 
     afterEach(() => {
         process.env = originalEnv;
+        // Restore original reverbAppKey if it was set
+        if (originalReverbAppKey) {
+            config.set('reverbAppKey', originalReverbAppKey);
+        }
     });
 
     it('should prioritize REVERB_APP_KEY from env', () => {
         process.env.REVERB_APP_KEY = 'env-key';
-        config.set('reverbAppKey', 'config-key');
+        config.set('reverbAppKey', 'test-config-key');
 
         expect(config.getReverbAppKey()).toBe('env-key');
     });
@@ -25,15 +30,15 @@ describe('Config', () => {
     it('should fallback to config key if env key missing', () => {
         delete process.env.REVERB_APP_KEY;
         delete process.env.STINT_REVERB_APP_KEY;
-        config.set('reverbAppKey', 'config-key');
+        config.set('reverbAppKey', 'test-config-key');
 
-        expect(config.getReverbAppKey()).toBe('config-key');
+        expect(config.getReverbAppKey()).toBe('test-config-key');
     });
 
     it('should use STINT_REVERB_APP_KEY if REVERB_APP_KEY missing', () => {
         delete process.env.REVERB_APP_KEY;
         process.env.STINT_REVERB_APP_KEY = 'stint-env-key';
-        config.set('reverbAppKey', 'config-key');
+        config.set('reverbAppKey', 'test-config-key');
 
         expect(config.getReverbAppKey()).toBe('stint-env-key');
     });

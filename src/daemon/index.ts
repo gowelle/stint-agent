@@ -1,7 +1,6 @@
 import { authService } from '../services/auth.js';
 import { apiService } from '../services/api.js';
 import { websocketService } from '../services/websocket.js';
-import { pollingService } from '../services/polling.js';
 import { commitQueue } from './queue.js';
 import { logger } from '../utils/logger.js';
 import { removePidFile } from '../utils/process.js';
@@ -59,18 +58,6 @@ export async function startDaemon(): Promise<void> {
             commitQueue.addToQueue(commit, project);
         });
 
-        // Also register polling handler for redundancy/fallback
-        pollingService.onCommitApproved((commit, project) => {
-            logger.info('daemon', `Commit approved (via polling): ${commit.id} for project ${project.name}`);
-
-            notify({
-                title: 'Commit Approved',
-                message: `${commit.message}\nProject: ${project.name}`,
-            });
-
-            // Add to queue for processing
-            commitQueue.addToQueue(commit, project);
-        });
 
         websocketService.onCommitPending(async (data) => {
             // Unpack data correctly - checking types, it seems onCommitPending handler receives the data object directly?
@@ -87,7 +74,7 @@ export async function startDaemon(): Promise<void> {
                 const projects = await apiService.getLinkedProjects();
                 const p = projects.find(proj => proj.id === commit.projectId);
                 if (p) projectName = p.name;
-            } catch (e) { /* ignore */ }
+            } catch (_e) { /* ignore */ }
 
             notify({
                 title: `New Proposal - ${projectName}`,
@@ -104,15 +91,6 @@ export async function startDaemon(): Promise<void> {
             });
         });
 
-        // Also register polling handler for project updates
-        pollingService.onProjectUpdated((project) => {
-            logger.info('daemon', `Project updated (via polling): ${project.id} - ${project.name}`);
-
-            notify({
-                title: 'Project Updated',
-                message: project.name,
-            });
-        });
 
         websocketService.onDisconnect(() => {
             logger.warn('daemon', 'WebSocket disconnected, will attempt to reconnect');
@@ -149,7 +127,7 @@ export async function startDaemon(): Promise<void> {
                     if (project) {
                         projectName = project.name;
                     }
-                } catch (e) {
+                } catch (_e) {
                     // Ignore API error for name lookup, proceed with ID
                 }
 
@@ -177,9 +155,6 @@ export async function startDaemon(): Promise<void> {
             logger.info('daemon', `Linked project: ${project.projectId}`);
             fileWatcher.watchProject(project.projectId);
         });
-
-        // Start polling service
-        pollingService.start();
 
         logger.info('daemon', 'Daemon started successfully');
 

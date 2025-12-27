@@ -238,6 +238,35 @@ export function registerDaemonCommands(program: Command): void {
                         console.log(`${chalk.bold('Threads:')}     ${stats.threads}`);
                         console.log(`${chalk.bold('Uptime:')}      ${formatUptime(stats.uptime)}`);
                     }
+
+                    // Check WebSocket status from status file
+                    const statusPath = path.join(os.homedir(), '.config', 'stint', 'daemon.status.json');
+                    if (fs.existsSync(statusPath)) {
+                        try {
+                            const statusData = JSON.parse(fs.readFileSync(statusPath, 'utf8'));
+                            console.log(chalk.blue('\n📡 WebSocket Status:'));
+                            console.log(chalk.gray('─'.repeat(50)));
+
+                            if (statusData.websocket?.connected) {
+                                console.log(`${chalk.bold('Connected:')}   ${chalk.green('✓ Yes')}`);
+                                if (statusData.websocket.channel) {
+                                    console.log(`${chalk.bold('Channel:')}     ${statusData.websocket.channel}`);
+                                }
+                            } else {
+                                console.log(`${chalk.bold('Connected:')}   ${chalk.yellow('✗ No')}`);
+                            }
+
+                            if (statusData.websocket?.lastEvent) {
+                                console.log(`${chalk.bold('Last Event:')}  ${statusData.websocket.lastEvent}`);
+                                if (statusData.websocket.lastEventTime) {
+                                    const ago = Math.floor((Date.now() - new Date(statusData.websocket.lastEventTime).getTime()) / 1000);
+                                    console.log(`${chalk.bold('Event Time:')}  ${formatUptime(ago)} ago`);
+                                }
+                            }
+                        } catch {
+                            // Status file exists but couldn't be parsed
+                        }
+                    }
                 } else {
                     console.log(`${chalk.bold('Status:')}      ${chalk.yellow('Not running')}`);
                     console.log(chalk.gray('Run "stint daemon start" to start the daemon.'));

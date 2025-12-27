@@ -1,13 +1,51 @@
-import WebSocket from 'ws';
+import Echo from 'laravel-echo';
+import Pusher from 'pusher-js';
+import fs from 'fs';
+import os from 'os';
+import path from 'path';
 import { config } from '../utils/config.js';
 import { authService } from './auth.js';
 import { logger } from '../utils/logger.js';
 import { PendingCommit, Project, Suggestion } from '../types/index.js';
 
+// Status file path for daemon status reporting
+const STATUS_FILE_PATH = path.join(os.homedir(), '.config', 'stint', 'daemon.status.json');
+
+interface DaemonStatus {
+    websocket: {
+        connected: boolean;
+        channel?: string;
+        lastEvent?: string;
+        lastEventTime?: string;
+    };
+}
+
+function writeStatus(update: Partial<DaemonStatus['websocket']>): void {
+    try {
+        const dir = path.dirname(STATUS_FILE_PATH);
+        if (!fs.existsSync(dir)) {
+            fs.mkdirSync(dir, { recursive: true });
+        }
+
+        let status: DaemonStatus = { websocket: { connected: false } };
+        if (fs.existsSync(STATUS_FILE_PATH)) {
+            try {
+                status = JSON.parse(fs.readFileSync(STATUS_FILE_PATH, 'utf8'));
+            } catch {
+                // File corrupted, start fresh
+            }
+        }
+
+        status.websocket = { ...status.websocket, ...update };
+        fs.writeFileSync(STATUS_FILE_PATH, JSON.stringify(status, null, 2));
+    } catch {
+        // Silent fail - status file is non-critical
+    }
+}
+
 class WebSocketServiceImpl {
-    private ws: WebSocket | null = null;
+    private echo: Echo<'reverb'> | null = null;
     private userId: string | null = null;
-    private socketId: string | null = null;
     private reconnectAttempts = 0;
     private maxReconnectAttempts = 10;
     private reconnectTimer: NodeJS.Timeout | null = null;
@@ -23,7 +61,7 @@ class WebSocketServiceImpl {
     private syncRequestedHandlers: Array<(projectId: string) => void> = [];
 
     /**
-     * Connect to the WebSocket server
+     * Connect to the WebSocket server using Laravel Echo
      * @throws Error if connection fails or no auth token available
      */
     async connect(): Promise<void> {
@@ -33,38 +71,141 @@ class WebSocketServiceImpl {
                 throw new Error('No authentication token available');
             }
 
-            const wsUrl = config.getWsUrl();
-            const url = `${wsUrl}?token=${encodeURIComponent(token)}`;
+            const reverbAppKey = config.getReverbAppKey();
+            if (!reverbAppKey) {
+                throw new Error('Reverb app key not configured');
+            }
 
-            logger.info('websocket', `Connecting to ${wsUrl}...`);
+            const apiUrl = config.getApiUrl();
+            const environment = config.getEnvironment();
 
-            this.ws = new WebSocket(url);
+            // Determine WebSocket host and port based on environment
+            let wsHost: string;
+            let wsPort: number;
+            let forceTLS: boolean;
+
+            if (environment === 'development') {
+                wsHost = 'localhost';
+                wsPort = 8080;
+                forceTLS = false;
+            } else {
+                wsHost = 'stint.codes';
+                wsPort = 443;
+                forceTLS = true;
+            }
+
+            logger.info('websocket', `Connecting to ${wsHost}:${wsPort} with key ${reverbAppKey}...`);
+
+            // Create Pusher client for Node.js environment
+            // Reverb expects connections at /app/{key} - use default pusher-js behavior
+            const pusherClient = new Pusher(reverbAppKey, {
+                wsHost,
+                wsPort,
+                forceTLS,
+                enabledTransports: ['ws', 'wss'],
+                disableStats: true,
+                cluster: '', // Required but unused for Reverb
+                authorizer: (channel) => ({
+                    authorize: async (socketId: string, callback: (error: Error | null, authData?: { auth: string }) => void) => {
+                        try {
+                            const response = await fetch(`${apiUrl}/api/broadcasting/auth`, {
+                                method: 'POST',
+                                headers: {
+                                    'Authorization': `Bearer ${token}`,
+                                    'Accept': 'application/json',
+                                    'Content-Type': 'application/json',
+                                },
+                                body: JSON.stringify({
+                                    socket_id: socketId,
+                                    channel_name: channel.name,
+                                }),
+                            });
+
+                            if (!response.ok) {
+                                const errorText = await response.text();
+                                logger.error('websocket', `Auth failed (${response.status}): ${errorText}`);
+                                callback(new Error(`Auth failed: ${response.status}`));
+                                return;
+                            }
+
+                            const data = await response.json() as { auth: string };
+                            callback(null, data);
+                        } catch (error) {
+                            logger.error('websocket', 'Channel auth error', error as Error);
+                            callback(error as Error);
+                        }
+                    },
+                }),
+            });
+
+            // Create Echo instance
+            this.echo = new Echo({
+                broadcaster: 'reverb',
+                key: reverbAppKey,
+                wsHost,
+                wsPort,
+                forceTLS,
+                disableStats: true,
+                enabledTransports: ['ws', 'wss'],
+                authEndpoint: `${apiUrl}/api/broadcasting/auth`,
+                auth: {
+                    headers: {
+                        Authorization: `Bearer ${token}`,
+                        Accept: 'application/json',
+                    },
+                },
+                client: pusherClient,
+            });
+
+            logger.info('websocket', 'Echo instance created, setting up connection handlers...');
 
             return new Promise((resolve, reject) => {
-                if (!this.ws) {
-                    reject(new Error('WebSocket not initialized'));
+                if (!this.echo) {
+                    reject(new Error('Echo not initialized'));
                     return;
                 }
 
-                this.ws.on('open', () => {
-                    logger.success('websocket', 'WebSocket connected');
+                // Add connection timeout
+                const connectionTimeout = setTimeout(() => {
+                    const state = this.echo?.connector.pusher.connection.state || 'unknown';
+                    logger.error('websocket', `Connection timeout after 15s (state: ${state})`);
+                    reject(new Error(`Connection timeout - stuck in state: ${state}`));
+                }, 15000);
+
+                // Log all state changes for debugging
+                this.echo.connector.pusher.connection.bind('state_change', (states: { previous: string; current: string }) => {
+                    logger.info('websocket', `Connection state: ${states.previous} -> ${states.current}`);
+                });
+
+                // Bind to connection events
+                this.echo.connector.pusher.connection.bind('connected', () => {
+                    clearTimeout(connectionTimeout);
+                    logger.success('websocket', '✅ Connected to Broadcaster via Sanctum');
+                    writeStatus({ connected: true });
                     this.reconnectAttempts = 0;
                     this.isManualDisconnect = false;
                     resolve();
                 });
 
-                this.ws.on('message', (data: Buffer) => {
-                    this.handleMessage(data);
+                this.echo.connector.pusher.connection.bind('error', (error: unknown) => {
+                    clearTimeout(connectionTimeout);
+                    const errorMessage = error instanceof Error
+                        ? error.message
+                        : JSON.stringify(error) || 'Unknown connection error';
+                    logger.error('websocket', `WebSocket error: ${errorMessage}`);
+                    reject(new Error(errorMessage));
                 });
 
-                this.ws.on('close', () => {
+                this.echo.connector.pusher.connection.bind('disconnected', () => {
                     logger.warn('websocket', 'WebSocket disconnected');
+                    writeStatus({ connected: false });
                     this.handleDisconnect();
                 });
 
-                this.ws.on('error', (error: Error) => {
-                    logger.error('websocket', 'WebSocket error', error);
-                    reject(error);
+                this.echo.connector.pusher.connection.bind('failed', () => {
+                    clearTimeout(connectionTimeout);
+                    logger.error('websocket', 'WebSocket connection failed');
+                    reject(new Error('WebSocket connection failed'));
                 });
             });
         } catch (error) {
@@ -85,19 +226,14 @@ class WebSocketServiceImpl {
             this.reconnectTimer = null;
         }
 
-        if (this.ws) {
-            // Unsubscribe from channel if subscribed
+        if (this.echo) {
+            // Leave the private channel if subscribed
             if (this.userId) {
-                this.sendMessage({
-                    event: 'pusher:unsubscribe',
-                    data: {
-                        channel: `private-user.${this.userId}`,
-                    },
-                });
+                this.echo.leave(`user.${this.userId}`);
             }
 
-            this.ws.close();
-            this.ws = null;
+            this.echo.disconnect();
+            this.echo = null;
             logger.info('websocket', 'WebSocket disconnected');
         }
     }
@@ -107,43 +243,71 @@ class WebSocketServiceImpl {
      * @returns True if connected and ready
      */
     isConnected(): boolean {
-        return this.ws !== null && this.ws.readyState === WebSocket.OPEN;
+        return this.echo !== null &&
+            this.echo.connector.pusher.connection.state === 'connected';
     }
 
     /**
-     * Subscribe to user-specific channel for real-time updates
+     * Subscribe to user-specific private channel for real-time updates
      * @param userId - User ID to subscribe to
      */
     async subscribeToUserChannel(userId: string): Promise<void> {
         this.userId = userId;
 
-        if (this.userId) {
-            const channel = `user.${this.userId}`;
-            logger.info('websocket', `Subscribing to channel: ${channel}`);
-            this.sendMessage({
-                event: 'pusher:subscribe',
-                data: {
-                    channel,
-                },
-            });
+        if (!this.echo) {
+            logger.warn('websocket', 'Cannot subscribe: not connected');
+            return;
         }
-    }
 
-    /**
-     * Get authentication signature for private channel from Laravel backend
-     */
-    private async getChannelAuth(channel: string, socketId: string): Promise<string> {
-        const { apiService } = await import('./api.js');
+        if (!this.isConnected()) {
+            logger.warn('websocket', 'Cannot subscribe: not connected');
+            return;
+        }
 
-        const response = await apiService.request<{ auth: string }>('/api/broadcasting/auth', {
-            method: 'POST',
-            body: JSON.stringify({
-                socket_id: socketId,
-                channel_name: channel,
-            }),
-        });
+        const channel = `user.${userId}`;
+        logger.info('websocket', `Subscribing to private channel: ${channel}`);
 
-        return response.auth;
+        // Subscribe to private channel and set up event listeners
+        const privateChannel = this.echo.private(channel);
+        writeStatus({ channel });
+
+        // Listen for all events
+        privateChannel
+            .listen('.commit.approved', (data: { pendingCommit: PendingCommit & { project: Project } }) => {
+                logger.info('websocket', `Commit approved: ${data.pendingCommit.id}`);
+                writeStatus({ lastEvent: 'commit.approved', lastEventTime: new Date().toISOString() });
+                this.commitApprovedHandlers.forEach((handler) =>
+                    handler(data.pendingCommit, data.pendingCommit.project)
+                );
+            })
+            .listen('.commit.pending', (data: { pendingCommit: PendingCommit }) => {
+                logger.info('websocket', `Commit pending: ${data.pendingCommit.id}`);
+                writeStatus({ lastEvent: 'commit.pending', lastEventTime: new Date().toISOString() });
+                this.commitPendingHandlers.forEach((handler) => handler(data.pendingCommit));
+            })
+            .listen('.suggestion.created', (data: { suggestion: Suggestion }) => {
+                logger.info('websocket', `Suggestion created: ${data.suggestion.id}`);
+                writeStatus({ lastEvent: 'suggestion.created', lastEventTime: new Date().toISOString() });
+                this.suggestionCreatedHandlers.forEach((handler) => handler(data.suggestion));
+            })
+            .listen('.project.updated', (data: { project: Project }) => {
+                logger.info('websocket', `Project updated: ${data.project.id}`);
+                writeStatus({ lastEvent: 'project.updated', lastEventTime: new Date().toISOString() });
+                this.projectUpdatedHandlers.forEach((handler) => handler(data.project));
+            })
+            .listen('.sync.requested', (data: { project: Project }) => {
+                logger.info('websocket', `Sync requested for project: ${data.project.id}`);
+                writeStatus({ lastEvent: 'sync.requested', lastEventTime: new Date().toISOString() });
+                this.syncRequestedHandlers.forEach((handler) => handler(data.project.id));
+            })
+            .listen('.agent.disconnected', (data: { reason?: string }) => {
+                const reason = data.reason ?? 'Server requested disconnect';
+                logger.warn('websocket', `Agent disconnected by server: ${reason}`);
+                writeStatus({ lastEvent: 'agent.disconnected', lastEventTime: new Date().toISOString() });
+                this.agentDisconnectedHandlers.forEach((handler) => handler(reason));
+            });
+
+        logger.success('websocket', `Subscribed to private channel: ${channel}`);
     }
 
     /**
@@ -178,121 +342,7 @@ class WebSocketServiceImpl {
         this.syncRequestedHandlers.push(handler);
     }
 
-    private sendMessage(message: Record<string, unknown>): void {
-        if (!this.isConnected()) {
-            logger.warn('websocket', 'Cannot send message: not connected');
-            return;
-        }
-
-        this.ws!.send(JSON.stringify(message));
-    }
-
-    private async handleMessage(data: Buffer): Promise<void> {
-        try {
-            const message = JSON.parse(data.toString());
-
-            logger.info('websocket', `Received message: ${message.event}`);
-
-            // Handle Pusher protocol messages
-            if (message.event === 'pusher:connection_established') {
-                try {
-                    const connectionData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
-                    this.socketId = connectionData.socket_id;
-                    logger.success('websocket', `Connection established (socket_id: ${this.socketId})`);
-
-                    // If we have a pending user ID to subscribe to, do it now
-                    if (this.userId) {
-                        this.subscribeToUserChannel(this.userId);
-                    }
-                } catch (error) {
-                    logger.success('websocket', 'Connection established');
-                }
-                return;
-            }
-
-            if (message.event === 'pusher_internal:subscription_succeeded') {
-                logger.success('websocket', `Subscribed to channel: ${message.channel}`);
-                return;
-            }
-
-            if (message.event === 'pusher:error') {
-                try {
-                    const errorData = typeof message.data === 'string' ? JSON.parse(message.data) : message.data;
-                    const errorCode = errorData.code;
-                    const errorMessage = errorData.message;
-
-                    logger.error('websocket', `WebSocket error (${errorCode}): ${errorMessage}`);
-
-                    // Handle specific error codes
-                    if (errorCode === 4001) {
-                        logger.error('websocket', 'Application does not exist - check Reverb app key configuration');
-                    } else if (errorCode === 4009) {
-                        logger.error('websocket', 'Connection is unauthorized - authentication token may be invalid or expired');
-                        // Notify user about authentication issue
-                        const { notify } = await import('../utils/notify.js');
-                        notify({
-                            title: 'Stint Agent - Connection Issue',
-                            message: 'WebSocket authentication failed. Notifications may be delayed (falling back to polling).',
-                        });
-                    }
-                } catch (parseError) {
-                    logger.error('websocket', `WebSocket error: ${JSON.stringify(message.data)}`);
-                }
-                return;
-            }
-
-            // Handle custom events
-            if (message.event === 'commit.approved') {
-                const { pendingCommit } = message.data;
-                logger.info('websocket', `Commit approved: ${pendingCommit.id}`);
-                this.commitApprovedHandlers.forEach((handler) => handler(pendingCommit, pendingCommit.project));
-                return;
-            }
-
-            if (message.event === 'commit.pending') {
-                const { pendingCommit } = message.data;
-                logger.info('websocket', `Commit pending: ${pendingCommit.id}`);
-                this.commitPendingHandlers.forEach((handler) => handler(pendingCommit));
-                return;
-            }
-
-            if (message.event === 'suggestion.created') {
-                const { suggestion } = message.data;
-                logger.info('websocket', `Suggestion created: ${suggestion.id}`);
-                this.suggestionCreatedHandlers.forEach((handler) => handler(suggestion));
-                return;
-            }
-
-            if (message.event === 'project.updated') {
-                const { project } = message.data;
-                logger.info('websocket', `Project updated: ${project.id}`);
-                this.projectUpdatedHandlers.forEach((handler) => handler(project));
-                return;
-            }
-
-            if (message.event === 'sync.requested') {
-                const { project } = message.data;
-                logger.info('websocket', `Sync requested for project: ${project.id}`);
-                this.syncRequestedHandlers.forEach((handler) => handler(project.id));
-                return;
-            }
-
-            if (message.event === 'agent.disconnected') {
-                const { reason } = message.data;
-                logger.warn('websocket', `Agent disconnected by server: ${reason ?? 'Server requested disconnect'}`);
-                this.agentDisconnectedHandlers.forEach((handler) => handler(reason ?? 'Server requested disconnect'));
-                return;
-            }
-
-            logger.info('websocket', `Unhandled event: ${message.event}, payload: ${JSON.stringify(message)}`);
-        } catch (error) {
-            logger.error('websocket', 'Failed to parse message', error as Error);
-        }
-    }
-
     private handleDisconnect(): void {
-        this.ws = null;
-
         // Call disconnect handlers
         this.disconnectHandlers.forEach((handler) => handler());
 

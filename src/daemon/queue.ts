@@ -157,7 +157,7 @@ class CommitQueueProcessor {
 
             return sha;
         } catch (error) {
-            msg = (error as Error).message;
+            const msg = (error as Error).message;
             logger.error('queue', `Commit execution failed: ${msg}`);
 
             notify({
